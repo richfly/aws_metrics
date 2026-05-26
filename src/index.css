@@ -7,14 +7,14 @@
 }
 
 .glass-panel {
-  background: rgba(255, 255, 255, 0.55) !important;
+  background: rgba(255, 255, 255, 0.80) !important;
   backdrop-filter: blur(32px) !important;
   -webkit-backdrop-filter: blur(32px) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
 }
 
 [data-mantine-color-scheme="dark"] .glass-panel {
-  background: rgba(28, 28, 35, 0.72) !important;
+  background: rgba(32, 32, 40, 0.88) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
 }
 
