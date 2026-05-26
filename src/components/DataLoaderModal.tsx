@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Modal, Stepper, Button, Group, Text, Paper, rem } from '@mantine/core'
+import { Modal, Stepper, Button, Group, Text, Paper } from '@mantine/core'
 import { motion } from 'framer-motion'
+import { IconDatabase, IconChartBar } from '@tabler/icons-react'
 import { FileUpload } from './FileUpload'
 
 interface DataLoaderModalProps {
@@ -47,6 +48,29 @@ export function DataLoaderModal({
         allowNextStepsSelect={false}
         size="sm"
       >
+        <Stepper.Step label="Get the data" description="Export from AWS">
+          <Paper bg="transparent" py="md">
+            <Paper p="md" radius="xl" withBorder mb="sm">
+              <Group gap="sm" mb={6}>
+                <IconDatabase size={18} style={{ color: 'var(--mantine-color-blue-6)' }} />
+                <Text fw={600} size="sm">Contact Search CSV</Text>
+              </Group>
+              <Text size="sm" c="dimmed" lh={1.6}>
+                Go to <b>Amazon Connect Console → Analytics and Optimization → Contact Search</b>, set filters and date range, then <b>Export → Download CSV</b>.
+              </Text>
+            </Paper>
+            <Paper p="md" radius="xl" withBorder>
+              <Group gap="sm" mb={6}>
+                <IconChartBar size={18} style={{ color: 'var(--mantine-color-teal-6)' }} />
+                <Text fw={600} size="sm">Phone Numbers CSV</Text>
+              </Group>
+              <Text size="sm" c="dimmed" lh={1.6}>
+                Go to <b>Amazon Connect Console → Phone Numbers</b> and export the list as CSV.
+              </Text>
+            </Paper>
+          </Paper>
+        </Stepper.Step>
+
         <Stepper.Step
           label="Phone Numbers"
           description={phoneLoaded ? `${phoneCount} numbers` : 'Upload CSV'}
@@ -110,10 +134,10 @@ export function DataLoaderModal({
               Back
             </Button>
           )}
-          {step < 1 ? (
+          {step < 2 ? (
             <Button
               onClick={() => setStep((s) => s + 1)}
-              disabled={step === 0 ? !phoneLoaded : !contactsLoaded}
+              disabled={step === 1 ? !phoneLoaded : false}
             >
               Next
             </Button>

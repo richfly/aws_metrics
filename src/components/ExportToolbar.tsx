@@ -1,7 +1,10 @@
 import { useState } from 'react'
-import { Group, Button, Tooltip, Modal, Text, Divider } from '@mantine/core'
+import { Group, Button, Tooltip, Modal, Text, Paper, Stack } from '@mantine/core'
 import { motion } from 'framer-motion'
-import { IconDownload, IconTable, IconClipboardText, IconCheck, IconBook } from '@tabler/icons-react'
+import {
+  IconDownload, IconTable, IconClipboardText, IconCheck, IconBook,
+  IconDatabase, IconChartBar, IconFilter, IconFileExport,
+} from '@tabler/icons-react'
 import { ContactRecord, DetailedMetrics } from '../types'
 import { downloadCsv, rowsToTsv, copyToClipboard, formatSummaryText } from '../utils/exportUtils'
 
@@ -94,31 +97,61 @@ export function ExportToolbar({ records, metrics, totalRecords, filteredRecords,
       <Modal
         opened={readmeOpened}
         onClose={() => setReadmeOpened(false)}
-        title="Quick Start"
+        title={
+          <Group gap="xs">
+            <IconBook size={20} />
+            <Text fw={600}>Quick Start</Text>
+          </Group>
+        }
         size="md"
         radius="xl"
       >
-        <Text size="sm" lh={1.7}>
-          <Text fw={600} size="sm" mb={4}>Getting the data</Text>
-          Go to <b>Amazon Connect Console → Analytics and Optimization → Contact Search</b>, set your filters and date range, then click <b>Export → Download CSV</b>. For phone number details, go to <b>Amazon Connect Console → Phone Numbers</b> and export the list as CSV.
+        <Stack gap="md" mt="xs">
+          <Paper p="md" radius="xl" withBorder>
+            <Group gap="sm" mb={6}>
+              <IconDatabase size={18} style={{ color: 'var(--mantine-color-blue-6)' }} />
+              <Text fw={600} size="sm">Getting the data</Text>
+            </Group>
+            <Text size="sm" c="dimmed" lh={1.6}>
+              Go to <b>Amazon Connect Console → Analytics and Optimization → Contact Search</b>, set filters and date range, then <b>Export → Download CSV</b>.
+            </Text>
+            <Text size="sm" c="dimmed" lh={1.6} mt={4}>
+              For phone numbers: <b>Amazon Connect Console → Phone Numbers</b>, export as CSV.
+            </Text>
+          </Paper>
 
-          <Divider my="sm" />
+          <Paper p="md" radius="xl" withBorder>
+            <Group gap="sm" mb={6}>
+              <IconChartBar size={18} style={{ color: 'var(--mantine-color-teal-6)' }} />
+              <Text fw={600} size="sm">Metrics</Text>
+            </Group>
+            <Text size="sm" c="dimmed" lh={1.6}>
+              <b>Agent Connect Time</b> — <code>connectedToAgentTimestamp - initiationTimestamp</code><br />
+              <b>Handle Time</b> — <code>agentInteractionDuration</code><br />
+              <b>After ACW Time</b> — <code>acwEndTimestamp - acwStartTimestamp</code>
+            </Text>
+          </Paper>
 
-          <Text fw={600} size="sm" mb={4}>Using the dashboard</Text>
-          Click <b>Load Data</b> (top-right), upload Phone Numbers CSV first (step 1), then Contact Search CSV (step 2). Metrics are computed automatically.
+          <Paper p="md" radius="xl" withBorder>
+            <Group gap="sm" mb={6}>
+              <IconFilter size={18} style={{ color: 'var(--mantine-color-purple-6)' }} />
+              <Text fw={600} size="sm">Filtering</Text>
+            </Group>
+            <Text size="sm" c="dimmed" lh={1.6}>
+              Narrow results by <b>Routing Profile</b>, <b>Initiation Method</b>, or <b>Phone Description</b>. Cards and summary update instantly.
+            </Text>
+          </Paper>
 
-          <Divider my="sm" />
-
-          <Text fw={600} size="sm" mb={4}>Metrics</Text>
-          <b>Agent Connect Time</b> — connectedToAgentTimestamp minus initiationTimestamp<br />
-          <b>Handle Time</b> — agent interaction duration<br />
-          <b>After ACW Time</b> — acwEndTimestamp minus acwStartTimestamp
-
-          <Divider my="sm" />
-
-          <Text fw={600} size="sm" mb={4}>Filtering &amp; export</Text>
-          Use the filter bar to narrow by routing profile, initiation method, or phone description. Export filtered results via CSV, clipboard, or formatted summary.
-        </Text>
+          <Paper p="md" radius="xl" withBorder>
+            <Group gap="sm" mb={6}>
+              <IconFileExport size={18} style={{ color: 'var(--mantine-color-orange-6)' }} />
+              <Text fw={600} size="sm">Export</Text>
+            </Group>
+            <Text size="sm" c="dimmed" lh={1.6}>
+              Download CSV, copy table values, or copy a formatted summary for presentations and email.
+            </Text>
+          </Paper>
+        </Stack>
       </Modal>
     </>
   )
