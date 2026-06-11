@@ -7,7 +7,7 @@ import '@mantine/dropzone/styles.css'
 import App from './App'
 
 const theme = createTheme({
-  defaultRadius: 'xl',
+  defaultRadius: 'md',
   fontFamily:
     '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "Segoe UI", sans-serif',
   fontFamilyMonospace:

@@ -133,29 +133,29 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <Paper shadow="sm" radius="xl" p="md" className="glass-panel">
+      <Paper shadow="sm" radius="md" p="md" className="glass-panel">
         <Text fw={600} size="lg" mb={4}>Abandonment Analysis</Text>
         <Text size="xs" c="dimmed" mb="md">
           Contacts initiated but never connected to an agent
         </Text>
 
         <SimpleGrid cols={{ base: 1, sm: 3 }} mb="xl">
-          <Paper p="md" radius="xl" className="glass-panel" ta="center">
+          <Paper p="md" radius="md" className="glass-panel" ta="center">
             <Text size="xs" c="dimmed" tt="uppercase" fw={500}>Total Contacts</Text>
             <Text fw={700} size="xl">{total.toLocaleString()}</Text>
           </Paper>
-          <Paper p="md" radius="xl" className="glass-panel" ta="center">
+          <Paper p="md" radius="md" className="glass-panel" ta="center">
             <Text size="xs" c="dimmed" tt="uppercase" fw={500}>Abandoned</Text>
             <Text fw={700} size="xl" c="red">{abandonedCount.toLocaleString()}</Text>
           </Paper>
-          <Paper p="md" radius="xl" className="glass-panel" ta="center">
+          <Paper p="md" radius="md" className="glass-panel" ta="center">
             <Text size="xs" c="dimmed" tt="uppercase" fw={500}>Abandonment Rate</Text>
             <Text fw={700} size="xl" c={abandonmentRate > 20 ? "red" : "orange"}>{abandonmentRate.toFixed(1)}%</Text>
           </Paper>
         </SimpleGrid>
 
         <SimpleGrid cols={{ base: 1, sm: 2 }} mb="md">
-          <Paper p="md" radius="lg" withBorder>
+          <Paper p="md" radius="md" withBorder>
             <Text fw={600} size="sm" mb="xs">Abandoned by Queue</Text>
             <Text size="xs" c="dimmed" mb="md">Top queues by abandonment count</Text>
             <ResponsiveContainer width="100%" height={chartHeight}>
@@ -171,7 +171,7 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
             </ResponsiveContainer>
           </Paper>
 
-          <Paper p="md" radius="lg" withBorder>
+          <Paper p="md" radius="md" withBorder>
             <Text fw={600} size="sm" mb="xs">By Disconnect Reason</Text>
             <Text size="xs" c="dimmed" mb="md">Why abandoned contacts ended</Text>
             <ResponsiveContainer width="100%" height={chartHeight}>
@@ -187,7 +187,7 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
         </SimpleGrid>
 
         <SimpleGrid cols={{ base: 1, sm: 2 }} mb="md">
-          <Paper p="md" radius="lg" withBorder>
+          <Paper p="md" radius="md" withBorder>
             <Text fw={600} size="sm" mb="xs">By Shift</Text>
             <Text size="xs" c="dimmed" mb="md">Answered vs abandoned by shift</Text>
             <ResponsiveContainer width="100%" height={200}>
@@ -203,7 +203,7 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
             </ResponsiveContainer>
           </Paper>
 
-          <Paper p="md" radius="lg" withBorder>
+          <Paper p="md" radius="md" withBorder>
             <Text fw={600} size="sm" mb="xs">Daily Trend</Text>
             <Text size="xs" c="dimmed" mb="md">Answered vs abandoned by day</Text>
             <ResponsiveContainer width="100%" height={200}>
@@ -220,7 +220,7 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
           </Paper>
         </SimpleGrid>
 
-        <Paper p="md" radius="lg" withBorder>
+        <Paper p="md" radius="md" withBorder>
           <Group justify="space-between" mb="sm">
             <div>
               <Text fw={600} size="sm">Queue Abandonment Rates</Text>
@@ -251,7 +251,7 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
           </ScrollArea>
         </Paper>
 
-        <Paper p="md" radius="lg" withBorder mt="md">
+        <Paper p="md" radius="md" withBorder mt="md">
           <Group justify="space-between" mb="sm">
             <div>
               <Text fw={600} size="sm">Abandoned Records</Text>

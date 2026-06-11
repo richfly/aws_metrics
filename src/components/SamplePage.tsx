@@ -95,7 +95,7 @@ export function SamplePage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <Paper shadow="sm" radius="xl" p="md" className="glass-panel">
+      <Paper shadow="sm" radius="md" p="md" className="glass-panel">
         <Text fw={600} size="lg" mb="md">Usage & Definitions</Text>
 
         <Stack gap="lg">

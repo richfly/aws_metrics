@@ -38,7 +38,7 @@ export function MetricsSummary({ metrics, totalRecords, filteredRecords, filterL
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.1 }}
     >
-      <Paper shadow="sm" radius="xl" p="md" className="glass-panel">
+      <Paper shadow="sm" radius="md" p="md" className="glass-panel">
         <Group justify="space-between" mb="md">
           <div>
             <Text fw={600} size="lg">Metrics Summary</Text>

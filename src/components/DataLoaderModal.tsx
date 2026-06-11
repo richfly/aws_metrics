@@ -39,7 +39,7 @@ export function DataLoaderModal({
       onClose={handleClose}
       title="Load Data"
       size="lg"
-      radius="xl"
+      radius="md"
       closeOnClickOutside={false}
     >
       <Stepper
@@ -50,7 +50,7 @@ export function DataLoaderModal({
       >
         <Stepper.Step label="Get the data" description="Export from AWS">
           <Paper bg="transparent" py="md">
-            <Paper p="md" radius="xl" withBorder mb="sm">
+            <Paper p="md" radius="md" withBorder mb="sm">
               <Group gap="sm" mb={6}>
                 <IconDatabase size={18} style={{ color: 'var(--mantine-color-blue-6)' }} />
                 <Text fw={600} size="sm">Contact Search CSV</Text>
@@ -59,7 +59,7 @@ export function DataLoaderModal({
                 Go to <b>Amazon Connect Console → Analytics and Optimization → Contact Search</b>, set filters and date range, then <b>Export → Download CSV</b>.
               </Text>
             </Paper>
-            <Paper p="md" radius="xl" withBorder>
+            <Paper p="md" radius="md" withBorder>
               <Group gap="sm" mb={6}>
                 <IconChartBar size={18} style={{ color: 'var(--mantine-color-teal-6)' }} />
                 <Text fw={600} size="sm">Phone Numbers CSV</Text>

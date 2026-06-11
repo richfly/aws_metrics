@@ -104,10 +104,10 @@ export function ExportToolbar({ records, metrics, totalRecords, filteredRecords,
           </Group>
         }
         size="md"
-        radius="xl"
+        radius="md"
       >
         <Stack gap="md" mt="xs">
-          <Paper p="md" radius="xl" withBorder>
+          <Paper p="md" radius="md" withBorder>
             <Group gap="sm" mb={6}>
               <IconDatabase size={18} style={{ color: 'var(--mantine-color-blue-6)' }} />
               <Text fw={600} size="sm">Getting the data</Text>
@@ -120,7 +120,7 @@ export function ExportToolbar({ records, metrics, totalRecords, filteredRecords,
             </Text>
           </Paper>
 
-          <Paper p="md" radius="xl" withBorder>
+          <Paper p="md" radius="md" withBorder>
             <Group gap="sm" mb={6}>
               <IconChartBar size={18} style={{ color: 'var(--mantine-color-teal-6)' }} />
               <Text fw={600} size="sm">Metrics</Text>
@@ -132,7 +132,7 @@ export function ExportToolbar({ records, metrics, totalRecords, filteredRecords,
             </Text>
           </Paper>
 
-          <Paper p="md" radius="xl" withBorder>
+          <Paper p="md" radius="md" withBorder>
             <Group gap="sm" mb={6}>
               <IconFilter size={18} style={{ color: 'var(--mantine-color-purple-6)' }} />
               <Text fw={600} size="sm">Filtering</Text>
@@ -142,7 +142,7 @@ export function ExportToolbar({ records, metrics, totalRecords, filteredRecords,
             </Text>
           </Paper>
 
-          <Paper p="md" radius="xl" withBorder>
+          <Paper p="md" radius="md" withBorder>
             <Group gap="sm" mb={6}>
               <IconFileExport size={18} style={{ color: 'var(--mantine-color-orange-6)' }} />
               <Text fw={600} size="sm">Export</Text>

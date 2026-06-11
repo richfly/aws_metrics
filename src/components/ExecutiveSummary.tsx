@@ -73,7 +73,7 @@ export function ExecutiveSummary({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
     >
-      <Paper shadow="sm" p="sm" radius="xl" className="glass-panel">
+      <Paper shadow="sm" p="sm" radius="md" className="glass-panel">
         <Text size="sm" fw={500}>
           {sentence}
         </Text>

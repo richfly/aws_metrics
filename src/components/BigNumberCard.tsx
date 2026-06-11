@@ -71,7 +71,7 @@ export function BigNumberCard({
     >
       <Paper
         shadow="sm"
-        radius="xl"
+        radius="md"
         p="lg"
         className="metric-card glass-panel"
         style={{

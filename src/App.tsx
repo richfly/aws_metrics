@@ -26,7 +26,6 @@ import {
   IconUpload,
   IconChartBar,
   IconPhone,
-  IconFile,
   IconChartLine,
   IconBook,
   IconCalendar,
@@ -38,23 +37,13 @@ import { parseContactCsv, parsePhoneCsv } from "./utils/csvParser";
 import { joinData } from "./utils/dataJoiner";
 import { calculateMetrics, parseDate } from "./utils/metricsCalculator";
 import { DataLoaderModal } from "./components/DataLoaderModal";
-import { BigNumberCard } from "./components/BigNumberCard";
-import { MetricsTable } from "./components/MetricsTable";
-import { MetricsSummary } from "./components/MetricsSummary";
-import { ExportToolbar } from "./components/ExportToolbar";
-import { ExecutiveSummary } from "./components/ExecutiveSummary";
 import { PhoneDescriptionBreakdown } from "./components/PhoneDescriptionBreakdown";
 import { SlaAnalysis } from "./components/SlaAnalysis";
 import { AbandonmentAnalysis } from "./components/AbandonmentAnalysis";
+import { DashboardOverview } from "./components/DashboardOverview";
+import { WbrPage } from "./components/WbrPage";
 import { SamplePage } from "./components/SamplePage";
 import "./index.css";
-
-const staggerContainer = {
-  hidden: {},
-  visible: {
-    transition: { staggerChildren: 0.06 },
-  },
-};
 
 export default function App() {
   const [contactRecords, setContactRecords] = useState<ContactRecord[]>([]);
@@ -80,7 +69,7 @@ export default function App() {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const isDark = colorScheme === "dark";
   const [activePage, setActivePage] = useState<
-    "dashboard" | "phone-analysis" | "sla" | "abandonment" | "usage"
+    "dashboard" | "wbr" | "phone-analysis" | "sla" | "abandonment" | "usage"
   >("dashboard");
 
   useEffect(() => {
@@ -317,7 +306,7 @@ export default function App() {
                   shadow="xs"
                   py={6}
                   px="md"
-                  radius="xl"
+                  radius="md"
                   className="glass-panel"
                   style={{ cursor: "pointer" }}
                   onClick={() => setDataModalOpened(true)}
@@ -336,7 +325,7 @@ export default function App() {
                 <Button
                   leftSection={<IconUpload size={16} />}
                   onClick={() => setDataModalOpened(true)}
-                  radius="xl"
+                  radius="md"
                   variant="light"
                   size="sm"
                 >
@@ -363,6 +352,14 @@ export default function App() {
             leftSection={<IconChartBar size={20} />}
             active={activePage === "dashboard"}
             onClick={() => setActivePage("dashboard")}
+            variant="light"
+            style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
+          />
+          <NavLink
+            label="WBR"
+            leftSection={<IconCalendar size={20} />}
+            active={activePage === "wbr"}
+            onClick={() => setActivePage("wbr")}
             variant="light"
             style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
           />
@@ -415,7 +412,7 @@ export default function App() {
                     color="red"
                     withCloseButton
                     onClose={() => setError(null)}
-                    radius="xl"
+                    radius="md"
                   >
                     {error}
                   </Alert>
@@ -431,7 +428,7 @@ export default function App() {
                   <Paper
                     shadow="sm"
                     p="sm"
-                    radius="xl"
+                    radius="md"
                     className="glass-panel"
                   >
                     <Stack gap="sm">
@@ -510,117 +507,20 @@ export default function App() {
               )}
 
               {activePage === "dashboard" && (
-                <Stack gap="md">
-                  {joinedRecords.length > 0 && (
-                    <>
-                      {metrics && (
-                        <ExecutiveSummary
-                          metrics={metrics}
-                          overallMetrics={overallMetrics}
-                          totalRecords={joinedRecords.length}
-                          filteredRecords={filteredRecords.length}
-                          filterLabel={filterLabel}
-                        />
-                      )}
+                <DashboardOverview records={filteredRecords} />
+              )}
 
-                      {metrics && (
-                        <ExportToolbar
-                          records={filteredRecords}
-                          metrics={metrics}
-                          totalRecords={joinedRecords.length}
-                          filteredRecords={filteredRecords.length}
-                          filterLabel={filterLabel}
-                        />
-                      )}
-
-                      {metrics && (
-                        <motion.div
-                          variants={staggerContainer}
-                          initial="hidden"
-                          animate="visible"
-                        >
-                          <Group grow>
-                            <BigNumberCard
-                              label="Records"
-                              value={filteredRecords.length}
-                              index={0}
-                            />
-                            <BigNumberCard
-                              label="Avg Agent Connect Time"
-                              stats={metrics.agentConnectTime}
-                              index={1}
-                            />
-                            <BigNumberCard
-                              label="Avg Handle Time"
-                              stats={metrics.handleTime}
-                              index={2}
-                            />
-                            <BigNumberCard
-                              label="Avg After ACW Time"
-                              stats={metrics.acwTime}
-                              index={3}
-                            />
-                          </Group>
-                        </motion.div>
-                      )}
-
-                      {metrics && (
-                        <MetricsSummary
-                          metrics={metrics}
-                          totalRecords={joinedRecords.length}
-                          filteredRecords={filteredRecords.length}
-                          filterLabel={filterLabel}
-                        />
-                      )}
-
-                  {filteredRecords.length > 0 && (
-                        <MetricsTable records={filteredRecords} />
-                      )}
-
-                      {missingDescriptionCount > 0 && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          transition={{ duration: 0.3 }}
-                        >
-                          <Alert color="yellow" variant="light" radius="xl">
-                            <Group gap="xs">
-                              <Text fw={600}>
-                                {missingDescriptionCount.toLocaleString()}{" "}
-                                records
-                              </Text>
-                              <Text c="dimmed">
-                                have no phone description — the Phone
-                                Description filter will not show those entries
-                              </Text>
-                            </Group>
-                          </Alert>
-                        </motion.div>
-                      )}
-                    </>
-                  )}
-
-                  {contactRecords.length > 0 && !metrics && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.2 }}
-                    >
-                      <Alert color="blue" variant="light" radius="xl">
-                        <Group gap="xs">
-                          <Text fw={600}>
-                            {joinedRecords.length.toLocaleString()} contact
-                            records
-                          </Text>
-                          <Text c="dimmed">
-                            loaded — no metrics available (timestamps may be
-                            empty)
-                          </Text>
-                        </Group>
-                      </Alert>
-                    </motion.div>
-                  )}
-                </Stack>
+              {activePage === "wbr" && (
+                <WbrPage
+                  records={filteredRecords}
+                  totalRecords={joinedRecords.length}
+                  filteredRecords={filteredRecords.length}
+                  metrics={metrics}
+                  overallMetrics={overallMetrics}
+                  filterLabel={filterLabel}
+                  missingDescriptionCount={missingDescriptionCount}
+                  contactRecordsLength={contactRecords.length}
+                />
               )}
 
               {activePage === "phone-analysis" && (

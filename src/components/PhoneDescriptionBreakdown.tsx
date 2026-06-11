@@ -32,7 +32,7 @@ export function PhoneDescriptionBreakdown({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.15 }}
     >
-      <Paper shadow="sm" radius="xl" p="md" className="glass-panel">
+      <Paper shadow="sm" radius="md" p="md" className="glass-panel">
         <Group justify="space-between" mb="md">
           <div>
             <Text fw={600} size="lg">KPIs by Phone Description</Text>

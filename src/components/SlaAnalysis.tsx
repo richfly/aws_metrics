@@ -176,7 +176,7 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <Paper shadow="sm" radius="xl" p="md" className="glass-panel">
+      <Paper shadow="sm" radius="md" p="md" className="glass-panel">
         <Group justify="space-between" mb="md">
           <div>
             <Group gap="xs">
@@ -221,19 +221,19 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
           <Stack gap="xl">
             {/* Overall summary cards */}
             <SimpleGrid cols={{ base: 1, sm: 4 }}>
-              <Paper p="md" radius="xl" className="glass-panel" ta="center">
+              <Paper p="md" radius="md" className="glass-panel" ta="center">
                 <Text size="xs" c="dimmed" tt="uppercase" fw={500}>Contacts Handled</Text>
                 <Text fw={700} size="xl">{overall.total.toLocaleString()}</Text>
               </Paper>
-              <Paper p="md" radius="xl" className="glass-panel" ta="center">
+              <Paper p="md" radius="md" className="glass-panel" ta="center">
                 <Text size="xs" c="dimmed" tt="uppercase" fw={500}>Overall ≤ 30s</Text>
                 <Text fw={700} size="xl">{overall.pct30s.toFixed(1)}%</Text>
               </Paper>
-              <Paper p="md" radius="xl" className="glass-panel" ta="center">
+              <Paper p="md" radius="md" className="glass-panel" ta="center">
                 <Text size="xs" c="dimmed" tt="uppercase" fw={500}>Overall ≤ 60s</Text>
                 <Text fw={700} size="xl">{overall.pct60s.toFixed(1)}%</Text>
               </Paper>
-              <Paper p="md" radius="xl" className="glass-panel" ta="center">
+              <Paper p="md" radius="md" className="glass-panel" ta="center">
                 <Text size="xs" c="dimmed" tt="uppercase" fw={500}>Overall ≤ 120s</Text>
                 <Text fw={700} size="xl">{overall.pct120s.toFixed(1)}%</Text>
               </Paper>
@@ -241,7 +241,7 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
 
             {/* Shift summary table */}
             {shiftData.length > 0 && (
-              <Paper p="md" radius="lg" withBorder>
+              <Paper p="md" radius="md" withBorder>
                 <Text fw={600} size="sm" mb="xs">SLA by Shift</Text>
                 <Text size="xs" c="dimmed" mb="sm">Aggregated across the selected period</Text>
                 <Table>
@@ -270,7 +270,7 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
             )}
 
             {/* Agent Connect Time SLA */}
-            <Paper p="md" radius="lg" withBorder>
+            <Paper p="md" radius="md" withBorder>
               <Text fw={600} size="sm" mb="xs">Agent Connect Time SLA</Text>
               <Text size="xs" c="dimmed" mb="md">Initiation timestamp → Connected to agent timestamp</Text>
               <Stack gap="xl">
@@ -315,7 +315,7 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
             </Paper>
 
             {/* Queue Time SLA */}
-            <Paper p="md" radius="lg" withBorder>
+            <Paper p="md" radius="md" withBorder>
               <Text fw={600} size="sm" mb="xs">Queue Time SLA</Text>
               <Text size="xs" c="dimmed" mb="md">Enqueue timestamp → Connected to agent timestamp (excludes IVR time)</Text>
               <Stack gap="xl">
@@ -360,7 +360,7 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
             </Paper>
 
             {/* Contact Volume by Shift */}
-            <Paper p="md" radius="lg" withBorder>
+            <Paper p="md" radius="md" withBorder>
               <Text fw={600} size="sm" mb="xs">Contact Volume by Shift</Text>
               <Text size="xs" c="dimmed" mb="md">Number of contacts handled per day by shift</Text>
               <ResponsiveContainer width="100%" height={240}>
