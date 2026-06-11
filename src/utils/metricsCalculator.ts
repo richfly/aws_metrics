@@ -268,6 +268,75 @@ export function calculateOverallSla(records: ContactRecord[]): OverallSlaStats {
   }
 }
 
+export interface ShiftSlaRow {
+  shift: string
+  total: number
+  pct30s: number
+  pct60s: number
+  pct120s: number
+  qPct30s: number
+  qPct60s: number
+  qPct120s: number
+}
+
+export function calculateSlaByShift(records: ContactRecord[]): ShiftSlaRow[] {
+  const map = new Map<string, {
+    total: number
+    below30s: number
+    below60s: number
+    below120s: number
+    qBelow30s: number
+    qBelow60s: number
+    qBelow120s: number
+  }>()
+
+  for (const r of records) {
+    const d = parseDate(r.initiationTimestamp)
+    if (!d) continue
+
+    const connectSec = secondsDiff(r.initiationTimestamp, r.connectedToAgentTimestamp)
+    if (connectSec === null) continue
+
+    const hour = d.getHours()
+    const shift = getShift(hour)
+
+    let g = map.get(shift)
+    if (!g) {
+      g = { total: 0, below30s: 0, below60s: 0, below120s: 0, qBelow30s: 0, qBelow60s: 0, qBelow120s: 0 }
+      map.set(shift, g)
+    }
+
+    g.total++
+    if (connectSec <= 120) g.below120s++
+    if (connectSec <= 60) g.below60s++
+    if (connectSec <= 30) g.below30s++
+
+    const qSec = secondsDiff(r.enqueueTimestamp, r.connectedToAgentTimestamp)
+    if (qSec !== null) {
+      if (qSec <= 120) g.qBelow120s++
+      if (qSec <= 60) g.qBelow60s++
+      if (qSec <= 30) g.qBelow30s++
+    }
+  }
+
+  return ["1st", "2nd", "3rd"]
+    .map((shift) => {
+      const g = map.get(shift)
+      if (!g) return null
+      return {
+        shift,
+        total: g.total,
+        pct30s: (g.below30s / g.total) * 100,
+        pct60s: (g.below60s / g.total) * 100,
+        pct120s: (g.below120s / g.total) * 100,
+        qPct30s: g.qBelow30s > 0 ? (g.qBelow30s / g.total) * 100 : 0,
+        qPct60s: g.qBelow60s > 0 ? (g.qBelow60s / g.total) * 100 : 0,
+        qPct120s: g.qBelow120s > 0 ? (g.qBelow120s / g.total) * 100 : 0,
+      }
+    })
+    .filter((r): r is ShiftSlaRow => r !== null)
+}
+
 function secondsDiff(start: string, end: string): number | null {
   const d1 = parseDate(start)
   const d2 = parseDate(end)

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Paper, Text, Group, Tooltip, SegmentedControl, SimpleGrid, Stack } from '@mantine/core'
+import { Paper, Text, Group, Tooltip, SegmentedControl, SimpleGrid, Stack, Table } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
 import { motion } from 'framer-motion'
 import {
@@ -14,7 +14,7 @@ import {
   ReferenceLine,
 } from 'recharts'
 import { ContactRecord } from '../types'
-import { calculateDailySla, calculateOverallSla } from '../utils/metricsCalculator'
+import { calculateDailySla, calculateOverallSla, calculateSlaByShift } from '../utils/metricsCalculator'
 
 interface SlaAnalysisProps {
   records: ContactRecord[]
@@ -168,6 +168,8 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
 
   const volumeData = useMemo(() => buildVolumeData(slaRows, groupByWeek), [slaRows, groupByWeek])
 
+  const shiftData = useMemo(() => calculateSlaByShift(records), [records])
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -232,6 +234,36 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                 <Text fw={700} size="xl">{overall.pct120s.toFixed(1)}%</Text>
               </Paper>
             </SimpleGrid>
+
+            {/* Shift summary table */}
+            {shiftData.length > 0 && (
+              <Paper p="md" radius="lg" withBorder>
+                <Text fw={600} size="sm" mb="xs">SLA by Shift</Text>
+                <Text size="xs" c="dimmed" mb="sm">Aggregated across the selected period</Text>
+                <Table>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Shift</Table.Th>
+                      <Table.Th ta="right">Contacts Handled</Table.Th>
+                      <Table.Th ta="right">Avg ≤ 30s</Table.Th>
+                      <Table.Th ta="right">Avg ≤ 60s</Table.Th>
+                      <Table.Th ta="right">Avg ≤ 120s</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {shiftData.map((row) => (
+                      <Table.Tr key={row.shift}>
+                        <Table.Td fw={500}>{row.shift} Shift</Table.Td>
+                        <Table.Td ta="right">{row.total.toLocaleString()}</Table.Td>
+                        <Table.Td ta="right">{row.pct30s.toFixed(1)}%</Table.Td>
+                        <Table.Td ta="right">{row.pct60s.toFixed(1)}%</Table.Td>
+                        <Table.Td ta="right">{row.pct120s.toFixed(1)}%</Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Paper>
+            )}
 
             {/* Agent Connect Time SLA */}
             <Paper p="md" radius="lg" withBorder>
