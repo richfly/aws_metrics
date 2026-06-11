@@ -9,7 +9,7 @@ import {
   ActionIcon,
   Tooltip,
   Box,
-  Select,
+  MultiSelect,
   Button,
   Paper,
   AppShell,
@@ -29,6 +29,8 @@ import {
   IconFile,
   IconChartLine,
   IconBook,
+  IconCalendar,
+  IconExclamationCircle,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { ContactRecord, PhoneRecord } from "./types";
@@ -43,6 +45,7 @@ import { ExportToolbar } from "./components/ExportToolbar";
 import { ExecutiveSummary } from "./components/ExecutiveSummary";
 import { PhoneDescriptionBreakdown } from "./components/PhoneDescriptionBreakdown";
 import { SlaAnalysis } from "./components/SlaAnalysis";
+import { AbandonmentAnalysis } from "./components/AbandonmentAnalysis";
 import { SamplePage } from "./components/SamplePage";
 import "./index.css";
 
@@ -58,15 +61,14 @@ export default function App() {
   const [phoneRecords, setPhoneRecords] = useState<PhoneRecord[]>([]);
   const [phoneCustomLoaded, setPhoneCustomLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [routingProfileFilter, setRoutingProfileFilter] = useState<
-    string | null
-  >(null);
-  const [descriptionFilter, setDescriptionFilter] = useState<string | null>(
-    null,
+  const [routingProfileFilter, setRoutingProfileFilter] = useState<string[]>(
+    [],
   );
+  const [queueFilter, setQueueFilter] = useState<string[]>([]);
+  const [descriptionFilter, setDescriptionFilter] = useState<string[]>([]);
   const [initiationMethodFilter, setInitiationMethodFilter] = useState<
-    string | null
-  >(null);
+    string[]
+  >([]);
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([
     null,
     null,
@@ -78,7 +80,7 @@ export default function App() {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const isDark = colorScheme === "dark";
   const [activePage, setActivePage] = useState<
-    "dashboard" | "phone-analysis" | "sla" | "usage"
+    "dashboard" | "phone-analysis" | "sla" | "abandonment" | "usage"
   >("dashboard");
 
   useEffect(() => {
@@ -108,9 +110,10 @@ export default function App() {
       }
       setContactRecords(parsed);
       setDataLoadedAt(new Date());
-      setRoutingProfileFilter(null);
-      setDescriptionFilter(null);
-      setInitiationMethodFilter(null);
+      setRoutingProfileFilter([]);
+      setQueueFilter([]);
+      setDescriptionFilter([]);
+      setInitiationMethodFilter([]);
       setError(null);
     } catch {
       setError("Failed to parse contacts CSV");
@@ -147,6 +150,18 @@ export default function App() {
     const values = new Set(
       joinedRecords.reduce<string[]>((acc, r) => {
         if (r.routingProfile) acc.push(r.routingProfile);
+        return acc;
+      }, []),
+    );
+    return Array.from(values)
+      .sort((a, b) => a.localeCompare(b))
+      .map((v) => ({ value: v, label: v }));
+  }, [joinedRecords]);
+
+  const queueOptions = useMemo(() => {
+    const values = new Set(
+      joinedRecords.reduce<string[]>((acc, r) => {
+        if (r.queue) acc.push(r.queue);
         return acc;
       }, []),
     );
@@ -194,17 +209,24 @@ export default function App() {
         return d && d < end;
       });
     }
-    if (routingProfileFilter) {
+    if (routingProfileFilter.length > 0) {
       records = records.filter(
-        (r) => r.routingProfile === routingProfileFilter,
+        (r) => r.routingProfile && routingProfileFilter.includes(r.routingProfile),
       );
     }
-    if (descriptionFilter) {
-      records = records.filter((r) => r.phoneDescription === descriptionFilter);
-    }
-    if (initiationMethodFilter) {
+    if (queueFilter.length > 0) {
       records = records.filter(
-        (r) => r.initiationMethod === initiationMethodFilter,
+        (r) => r.queue && queueFilter.includes(r.queue),
+      );
+    }
+    if (descriptionFilter.length > 0) {
+      records = records.filter(
+        (r) => r.phoneDescription && descriptionFilter.includes(r.phoneDescription),
+      );
+    }
+    if (initiationMethodFilter.length > 0) {
+      records = records.filter(
+        (r) => r.initiationMethod && initiationMethodFilter.includes(r.initiationMethod),
       );
     }
     return records;
@@ -212,6 +234,7 @@ export default function App() {
     joinedRecords,
     dateRange,
     routingProfileFilter,
+    queueFilter,
     descriptionFilter,
     initiationMethodFilter,
   ]);
@@ -223,9 +246,10 @@ export default function App() {
   );
 
   const clearFilters = useCallback(() => {
-    setRoutingProfileFilter(null);
-    setDescriptionFilter(null);
-    setInitiationMethodFilter(null);
+    setRoutingProfileFilter([]);
+    setQueueFilter([]);
+    setDescriptionFilter([]);
+    setInitiationMethodFilter([]);
     setDateRange([null, null]);
   }, []);
 
@@ -239,26 +263,29 @@ export default function App() {
       parts.push(`From ${dateRange[0].toLocaleDateString()}`);
     else if (dateRange[1])
       parts.push(`To ${dateRange[1].toLocaleDateString()}`);
-    if (routingProfileFilter)
-      parts.push(`Routing Profile: ${routingProfileFilter}`);
-    if (initiationMethodFilter)
-      parts.push(`Initiation: ${initiationMethodFilter}`);
-    if (descriptionFilter) parts.push(`Description: ${descriptionFilter}`);
+    if (routingProfileFilter.length > 0)
+      parts.push(`Routing Profile: ${routingProfileFilter.join(', ')}`);
+    if (queueFilter.length > 0)
+      parts.push(`Queue: ${queueFilter.join(', ')}`);
+    if (initiationMethodFilter.length > 0)
+      parts.push(`Initiation: ${initiationMethodFilter.join(', ')}`);
+    if (descriptionFilter.length > 0)
+      parts.push(`Description: ${descriptionFilter.join(', ')}`);
     return parts.join(", ");
   }, [
     dateRange,
     routingProfileFilter,
+    queueFilter,
     initiationMethodFilter,
     descriptionFilter,
   ]);
 
-  const hasFilter = !!(
-    dateRange[0] ||
-    dateRange[1] ||
-    routingProfileFilter ||
-    descriptionFilter ||
-    initiationMethodFilter
-  );
+  const hasFilter =
+    !!(dateRange[0] || dateRange[1]) ||
+    routingProfileFilter.length > 0 ||
+    queueFilter.length > 0 ||
+    descriptionFilter.length > 0 ||
+    initiationMethodFilter.length > 0;
 
   const missingDescriptionCount = useMemo(
     () => joinedRecords.filter((r) => !r.phoneDescription).length,
@@ -356,6 +383,14 @@ export default function App() {
             style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
           />
           <NavLink
+            label="Abandonment"
+            leftSection={<IconExclamationCircle size={20} />}
+            active={activePage === "abandonment"}
+            onClick={() => setActivePage("abandonment")}
+            variant="light"
+            style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
+          />
+          <NavLink
             label="Usage & Definitions"
             leftSection={<IconBook size={20} />}
             active={activePage === "usage"}
@@ -399,61 +434,77 @@ export default function App() {
                     radius="xl"
                     className="glass-panel"
                   >
-                    <Group gap="sm" align="end">
-                      <DatePickerInput
-                        type="range"
-                        label="Date Range"
-                        placeholder="Pick dates"
-                        value={dateRange}
-                        onChange={setDateRange}
-                        clearable
-                        style={{ flex: 1, minWidth: 200 }}
-                      />
-                      <Select
-                        label="Routing Profile"
-                        placeholder="All routing profiles"
-                        data={routingProfileOptions}
-                        value={routingProfileFilter}
-                        onChange={setRoutingProfileFilter}
-                        clearable
-                        searchable
-                        style={{ flex: 1, minWidth: 180 }}
-                        leftSection={<IconFilter size={14} />}
-                      />
-                      <Select
-                        label="Initiation Method"
-                        placeholder="All methods"
-                        data={initiationMethodOptions}
-                        value={initiationMethodFilter}
-                        onChange={setInitiationMethodFilter}
-                        clearable
-                        searchable
-                        style={{ flex: 1, minWidth: 180 }}
-                        leftSection={<IconFilter size={14} />}
-                      />
-                      <Select
-                        label="Phone Description"
-                        placeholder="All descriptions"
-                        data={descriptionOptions}
-                        value={descriptionFilter}
-                        onChange={setDescriptionFilter}
-                        clearable
-                        searchable
-                        style={{ flex: 1, minWidth: 180 }}
-                        leftSection={<IconFilter size={14} />}
-                      />
-                      {hasFilter && (
-                        <Button
-                          variant="subtle"
-                          color="gray"
-                          onClick={clearFilters}
-                          leftSection={<IconFilterOff size={16} />}
-                          style={{ marginBottom: 1 }}
-                        >
-                          Clear
-                        </Button>
-                      )}
-                    </Group>
+                    <Stack gap="sm">
+                      <Group gap="sm" align="end" grow preventGrowOverflow={false}>
+                        <DatePickerInput
+                          type="range"
+                          label="Date Range"
+                          placeholder="Pick dates"
+                          value={dateRange}
+                          onChange={setDateRange}
+                          clearable
+                          leftSection={<IconCalendar size={16} />}
+                          style={{ minWidth: 200 }}
+                        />
+                        <MultiSelect
+                          label="Initiation Method"
+                          placeholder="All methods"
+                          data={initiationMethodOptions}
+                          value={initiationMethodFilter}
+                          onChange={setInitiationMethodFilter}
+                          clearable
+                          searchable
+                          style={{ minWidth: 140 }}
+                          leftSection={<IconFilter size={14} />}
+                        />
+                      </Group>
+                      <Group gap="sm" align="end" grow preventGrowOverflow={false}>
+                        <MultiSelect
+                          label="Queue"
+                          placeholder="All queues"
+                          data={queueOptions}
+                          value={queueFilter}
+                          onChange={setQueueFilter}
+                          clearable
+                          searchable
+                          style={{ minWidth: 140 }}
+                          leftSection={<IconFilter size={14} />}
+                        />
+                        <MultiSelect
+                          label="Routing Profile"
+                          placeholder="All routing profiles"
+                          data={routingProfileOptions}
+                          value={routingProfileFilter}
+                          onChange={setRoutingProfileFilter}
+                          clearable
+                          searchable
+                          style={{ minWidth: 140 }}
+                          leftSection={<IconFilter size={14} />}
+                        />
+                        <MultiSelect
+                          label="Phone Description"
+                          placeholder="All descriptions"
+                          data={descriptionOptions}
+                          value={descriptionFilter}
+                          onChange={setDescriptionFilter}
+                          clearable
+                          searchable
+                          style={{ minWidth: 140 }}
+                          leftSection={<IconFilter size={14} />}
+                        />
+                        {hasFilter && (
+                          <Button
+                            variant="subtle"
+                            color="gray"
+                            onClick={clearFilters}
+                            leftSection={<IconFilterOff size={16} />}
+                            style={{ marginTop: 24 }}
+                          >
+                            Clear
+                          </Button>
+                        )}
+                      </Group>
+                    </Stack>
                   </Paper>
                 </motion.div>
               )}
@@ -582,6 +633,10 @@ export default function App() {
               )}
 
               {activePage === "sla" && <SlaAnalysis records={filteredRecords} />}
+
+              {activePage === "abandonment" && (
+                <AbandonmentAnalysis records={filteredRecords} />
+              )}
 
               {activePage === "usage" && <SamplePage />}
             </Stack>

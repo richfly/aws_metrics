@@ -220,7 +220,11 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
         {hasData && (
           <Stack gap="xl">
             {/* Overall summary cards */}
-            <SimpleGrid cols={{ base: 1, sm: 3 }}>
+            <SimpleGrid cols={{ base: 1, sm: 4 }}>
+              <Paper p="md" radius="xl" className="glass-panel" ta="center">
+                <Text size="xs" c="dimmed" tt="uppercase" fw={500}>Contacts Handled</Text>
+                <Text fw={700} size="xl">{overall.total.toLocaleString()}</Text>
+              </Paper>
               <Paper p="md" radius="xl" className="glass-panel" ta="center">
                 <Text size="xs" c="dimmed" tt="uppercase" fw={500}>Overall ≤ 30s</Text>
                 <Text fw={700} size="xl">{overall.pct30s.toFixed(1)}%</Text>
