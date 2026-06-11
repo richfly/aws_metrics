@@ -1,16 +1,77 @@
 import { ContactRecord, MetricStats, DetailedMetrics } from '../types'
 
-function parseDate(str: string): Date | null {
+export function parseDate(str: string): Date | null {
   if (!str || str.trim() === '') return null
   const d = new Date(str)
   return isNaN(d.getTime()) ? null : d
 }
 
-function minutesDiff(start: string, end: string): number | null {
+export function minutesDiff(start: string, end: string): number | null {
   const d1 = parseDate(start)
   const d2 = parseDate(end)
   if (!d1 || !d2) return null
   return (d2.getTime() - d1.getTime()) / 60000
+}
+
+export interface PhoneDescriptionGroup {
+  phoneDescription: string
+  count: number
+  avgConnectTime: number
+  avgHandleTime: number
+  avgAcwTime: number
+}
+
+export function calculateMetricsByPhoneDescription(
+  records: ContactRecord[],
+): PhoneDescriptionGroup[] {
+  const groups = new Map<string, {
+    connectTimes: number[]
+    handleTimes: number[]
+    acwTimes: number[]
+  }>()
+
+  for (const r of records) {
+    const desc = r.phoneDescription
+    if (!desc) continue
+
+    let group = groups.get(desc)
+    if (!group) {
+      group = { connectTimes: [], handleTimes: [], acwTimes: [] }
+      groups.set(desc, group)
+    }
+
+    const connect = minutesDiff(r.initiationTimestamp, r.connectedToAgentTimestamp)
+    if (connect !== null) group.connectTimes.push(connect)
+
+    const handle = minutesDiff(r.initiationTimestamp, r.disconnectTimestamp)
+    if (handle !== null) group.handleTimes.push(handle)
+
+    const acw = minutesDiff(r.acwStartTimestamp, r.acwEndTimestamp)
+    if (acw !== null) group.acwTimes.push(acw)
+  }
+
+  const result: PhoneDescriptionGroup[] = []
+
+  for (const [phoneDescription, g] of groups) {
+    const avgConnect = g.connectTimes.length > 0
+      ? g.connectTimes.reduce((a, b) => a + b, 0) / g.connectTimes.length
+      : 0
+    const avgHandle = g.handleTimes.length > 0
+      ? g.handleTimes.reduce((a, b) => a + b, 0) / g.handleTimes.length
+      : 0
+    const avgAcw = g.acwTimes.length > 0
+      ? g.acwTimes.reduce((a, b) => a + b, 0) / g.acwTimes.length
+      : 0
+
+    const totalCounts = [g.connectTimes.length, g.handleTimes.length, g.acwTimes.length]
+    const count = Math.max(...totalCounts)
+
+    result.push({ phoneDescription, count, avgConnectTime: avgConnect, avgHandleTime: avgHandle, avgAcwTime: avgAcw })
+  }
+
+  result.sort((a, b) => a.phoneDescription.localeCompare(b.phoneDescription))
+
+  return result
 }
 
 function computeStats(values: number[]): MetricStats | null {
@@ -47,4 +108,169 @@ export function calculateMetrics(records: ContactRecord[]): DetailedMetrics {
     acwTime: computeStats(acwTimes),
     handleTime: computeStats(handleTimes),
   }
+}
+
+function getShift(hour: number): string {
+  if (hour >= 6 && hour < 14) return "1st"
+  if (hour >= 14 && hour < 22) return "2nd"
+  return "3rd"
+}
+
+export interface DailySlaRow {
+  date: string
+  weekStart: string
+  shift: string
+  total: number
+  below30s: number
+  below60s: number
+  below120s: number
+  pct30s: number
+  pct60s: number
+  pct120s: number
+  qBelow30s: number
+  qBelow60s: number
+  qBelow120s: number
+  qPct30s: number
+  qPct60s: number
+  qPct120s: number
+}
+
+function weekStartStr(d: Date): string {
+  const day = d.getDay()
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+  const monday = new Date(d)
+  monday.setDate(diff)
+  return monday.toISOString().slice(0, 10)
+}
+
+export function calculateDailySla(records: ContactRecord[]): DailySlaRow[] {
+  const groups = new Map<string, {
+    total: number
+    below30s: number
+    below60s: number
+    below120s: number
+    qBelow30s: number
+    qBelow60s: number
+    qBelow120s: number
+  }>()
+
+  for (const r of records) {
+    const d = parseDate(r.initiationTimestamp)
+    if (!d) continue
+
+    const connectSec = secondsDiff(r.initiationTimestamp, r.connectedToAgentTimestamp)
+    if (connectSec === null) continue
+
+    const qSec = secondsDiff(r.enqueueTimestamp, r.connectedToAgentTimestamp)
+
+    const dateStr = d.toISOString().slice(0, 10)
+    const ws = weekStartStr(d)
+    const hour = d.getHours()
+    const shift = getShift(hour)
+    const key = `${dateStr}|${shift}`
+
+    let g = groups.get(key)
+    if (!g) {
+      g = { total: 0, below30s: 0, below60s: 0, below120s: 0, qBelow30s: 0, qBelow60s: 0, qBelow120s: 0 }
+      groups.set(key, g)
+    }
+
+    g.total++
+    if (connectSec <= 120) g.below120s++
+    if (connectSec <= 60) g.below60s++
+    if (connectSec <= 30) g.below30s++
+
+    if (qSec !== null) {
+      if (qSec <= 120) g.qBelow120s++
+      if (qSec <= 60) g.qBelow60s++
+      if (qSec <= 30) g.qBelow30s++
+    }
+  }
+
+  const result: DailySlaRow[] = []
+
+  for (const [key, g] of groups) {
+    const [date, shift] = key.split("|")
+    const dateObj = parseDate(date)
+    const ws = dateObj ? weekStartStr(dateObj) : date
+    result.push({
+      date,
+      weekStart: ws,
+      shift,
+      total: g.total,
+      below30s: g.below30s,
+      below60s: g.below60s,
+      below120s: g.below120s,
+      pct30s: (g.below30s / g.total) * 100,
+      pct60s: (g.below60s / g.total) * 100,
+      pct120s: (g.below120s / g.total) * 100,
+      qBelow30s: g.qBelow30s,
+      qBelow60s: g.qBelow60s,
+      qBelow120s: g.qBelow120s,
+      qPct30s: g.qBelow30s > 0 ? (g.qBelow30s / g.total) * 100 : 0,
+      qPct60s: g.qBelow60s > 0 ? (g.qBelow60s / g.total) * 100 : 0,
+      qPct120s: g.qBelow120s > 0 ? (g.qBelow120s / g.total) * 100 : 0,
+    })
+  }
+
+  result.sort((a, b) => {
+    const dc = a.date.localeCompare(b.date)
+    return dc !== 0 ? dc : a.shift.localeCompare(b.shift)
+  })
+
+  return result
+}
+
+export interface OverallSlaStats {
+  total: number
+  pct30s: number
+  pct60s: number
+  pct120s: number
+  qPct30s: number
+  qPct60s: number
+  qPct120s: number
+}
+
+export function calculateOverallSla(records: ContactRecord[]): OverallSlaStats {
+  let total = 0
+  let below30s = 0
+  let below60s = 0
+  let below120s = 0
+  let qBelow30s = 0
+  let qBelow60s = 0
+  let qBelow120s = 0
+
+  for (const r of records) {
+    const connectSec = secondsDiff(r.initiationTimestamp, r.connectedToAgentTimestamp)
+    if (connectSec === null) continue
+
+    total++
+    if (connectSec <= 120) below120s++
+    if (connectSec <= 60) below60s++
+    if (connectSec <= 30) below30s++
+
+    const qSec = secondsDiff(r.enqueueTimestamp, r.connectedToAgentTimestamp)
+    if (qSec !== null) {
+      if (qSec <= 120) qBelow120s++
+      if (qSec <= 60) qBelow60s++
+      if (qSec <= 30) qBelow30s++
+    }
+  }
+
+  return {
+    total,
+    pct30s: total > 0 ? (below30s / total) * 100 : 0,
+    pct60s: total > 0 ? (below60s / total) * 100 : 0,
+    pct120s: total > 0 ? (below120s / total) * 100 : 0,
+    qPct30s: total > 0 ? (qBelow30s / total) * 100 : 0,
+    qPct60s: total > 0 ? (qBelow60s / total) * 100 : 0,
+    qPct120s: total > 0 ? (qBelow120s / total) * 100 : 0,
+  }
+}
+
+function secondsDiff(start: string, end: string): number | null {
+  const d1 = parseDate(start)
+  const d2 = parseDate(end)
+  if (!d1 || !d2) return null
+  return (d2.getTime() - d1.getTime()) / 1000
 }

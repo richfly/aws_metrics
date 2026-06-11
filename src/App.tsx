@@ -12,6 +12,8 @@ import {
   Select,
   Button,
   Paper,
+  AppShell,
+  NavLink,
 } from "@mantine/core";
 import { useMantineColorScheme } from "@mantine/core";
 import {
@@ -21,6 +23,11 @@ import {
   IconFilter,
   IconFilterOff,
   IconUpload,
+  IconChartBar,
+  IconPhone,
+  IconFile,
+  IconChartLine,
+  IconBook,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { ContactRecord, PhoneRecord } from "./types";
@@ -33,6 +40,9 @@ import { MetricsTable } from "./components/MetricsTable";
 import { MetricsSummary } from "./components/MetricsSummary";
 import { ExportToolbar } from "./components/ExportToolbar";
 import { ExecutiveSummary } from "./components/ExecutiveSummary";
+import { PhoneDescriptionBreakdown } from "./components/PhoneDescriptionBreakdown";
+import { SlaAnalysis } from "./components/SlaAnalysis";
+import { SamplePage } from "./components/SamplePage";
 import "./index.css";
 
 const staggerContainer = {
@@ -62,6 +72,9 @@ export default function App() {
   const refreshInterval = useRef<number | undefined>(undefined);
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const isDark = colorScheme === "dark";
+  const [activePage, setActivePage] = useState<
+    "dashboard" | "phone-analysis" | "sla" | "usage"
+  >("dashboard");
 
   useEffect(() => {
     if (!dataLoadedAt) {
@@ -218,253 +231,319 @@ export default function App() {
   );
 
   return (
-    <Box className="app-bg">
-      <Container size="xl" py="md">
-        <Stack gap="md">
-          <motion.div
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          >
-            <Group justify="space-between" align="flex-start">
-              <div>
-                <Title
-                  order={1}
-                  style={{ fontSize: "1.5rem", fontWeight: 600 }}
-                >
-                  Contact Metrics
-                </Title>
-                <Text c="dimmed" size="sm">
-                  Agent Connect, ACW &amp; Handle Times
-                  {freshLabel && <span> &middot; {freshLabel}</span>}
-                </Text>
-              </div>
+    <Box className="app-bg" style={{ minHeight: "100vh" }}>
+      <AppShell
+        header={{ height: 56 }}
+        navbar={{ width: 180, breakpoint: 0 }}
+        padding={0}
+      >
+        <AppShell.Header>
+          <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+            <Group gap="xs" wrap="nowrap" style={{ overflow: "hidden" }}>
+              <Title order={1} style={{ fontSize: "1.25rem", fontWeight: 600 }}>
+                Contact Metrics
+              </Title>
+              <Text c="dimmed" size="sm" visibleFrom="sm">
+                Agent Connect, ACW &amp; Handle Times
+                {freshLabel && <span> &middot; {freshLabel}</span>}
+              </Text>
+            </Group>
 
-              <Group>
-                {joinedRecords.length > 0 ? (
+            <Group wrap="nowrap">
+              {joinedRecords.length > 0 ? (
+                <Paper
+                  shadow="xs"
+                  py={6}
+                  px="md"
+                  radius="xl"
+                  className="glass-panel"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => setDataModalOpened(true)}
+                >
+                  <Group gap="xs">
+                    <IconUpload size={14} />
+                    <Text size="sm" fw={500}>
+                      {joinedRecords.length.toLocaleString()} records
+                    </Text>
+                    <Text size="xs" c="dimmed" visibleFrom="sm">
+                      &middot; {phoneRecords.length.toLocaleString()} numbers
+                    </Text>
+                  </Group>
+                </Paper>
+              ) : (
+                <Button
+                  leftSection={<IconUpload size={16} />}
+                  onClick={() => setDataModalOpened(true)}
+                  radius="xl"
+                  variant="light"
+                  size="sm"
+                >
+                  Load Data
+                </Button>
+              )}
+              <Tooltip label={`Switch to ${isDark ? "light" : "dark"} mode`}>
+                <ActionIcon
+                  variant="subtle"
+                  size="lg"
+                  radius="xl"
+                  onClick={() => toggleColorScheme()}
+                >
+                  {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          </Group>
+        </AppShell.Header>
+
+        <AppShell.Navbar p="sm">
+          <NavLink
+            label="Dashboard"
+            leftSection={<IconChartBar size={20} />}
+            active={activePage === "dashboard"}
+            onClick={() => setActivePage("dashboard")}
+            variant="light"
+            style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
+          />
+          <NavLink
+            label="Phone Analysis"
+            leftSection={<IconPhone size={20} />}
+            active={activePage === "phone-analysis"}
+            onClick={() => setActivePage("phone-analysis")}
+            variant="light"
+            style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
+          />
+          <NavLink
+            label="SLA"
+            leftSection={<IconChartLine size={20} />}
+            active={activePage === "sla"}
+            onClick={() => setActivePage("sla")}
+            variant="light"
+            style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
+          />
+          <NavLink
+            label="Usage & Definitions"
+            leftSection={<IconBook size={20} />}
+            active={activePage === "usage"}
+            onClick={() => setActivePage("usage")}
+            variant="light"
+            style={{ borderRadius: "var(--mantine-radius-xl)" }}
+          />
+        </AppShell.Navbar>
+
+        <AppShell.Main>
+          <Container size="xl" py="md">
+            <Stack gap="md">
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <Alert
+                    icon={<IconAlertCircle size="1rem" />}
+                    title="Error"
+                    color="red"
+                    withCloseButton
+                    onClose={() => setError(null)}
+                    radius="xl"
+                  >
+                    {error}
+                  </Alert>
+                </motion.div>
+              )}
+
+              {joinedRecords.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
                   <Paper
-                    shadow="xs"
-                    py={6}
-                    px="md"
+                    shadow="sm"
+                    p="sm"
                     radius="xl"
                     className="glass-panel"
-                    style={{ cursor: "pointer" }}
-                    onClick={() => setDataModalOpened(true)}
                   >
-                    <Group gap="xs">
-                      <IconUpload size={14} />
-                      <Text size="sm" fw={500}>
-                        {joinedRecords.length.toLocaleString()} records
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        &middot; {phoneRecords.length.toLocaleString()} numbers
-                      </Text>
+                    <Group gap="sm" align="end">
+                      <Select
+                        label="Routing Profile"
+                        placeholder="All routing profiles"
+                        data={routingProfileOptions}
+                        value={routingProfileFilter}
+                        onChange={setRoutingProfileFilter}
+                        clearable
+                        searchable
+                        style={{ flex: 1, minWidth: 180 }}
+                        leftSection={<IconFilter size={14} />}
+                      />
+                      <Select
+                        label="Initiation Method"
+                        placeholder="All methods"
+                        data={initiationMethodOptions}
+                        value={initiationMethodFilter}
+                        onChange={setInitiationMethodFilter}
+                        clearable
+                        searchable
+                        style={{ flex: 1, minWidth: 180 }}
+                        leftSection={<IconFilter size={14} />}
+                      />
+                      <Select
+                        label="Phone Description"
+                        placeholder="All descriptions"
+                        data={descriptionOptions}
+                        value={descriptionFilter}
+                        onChange={setDescriptionFilter}
+                        clearable
+                        searchable
+                        style={{ flex: 1, minWidth: 180 }}
+                        leftSection={<IconFilter size={14} />}
+                      />
+                      {hasFilter && (
+                        <Button
+                          variant="subtle"
+                          color="gray"
+                          onClick={clearFilters}
+                          leftSection={<IconFilterOff size={16} />}
+                          style={{ marginBottom: 1 }}
+                        >
+                          Clear
+                        </Button>
+                      )}
                     </Group>
                   </Paper>
-                ) : (
-                  <Button
-                    leftSection={<IconUpload size={16} />}
-                    onClick={() => setDataModalOpened(true)}
-                    radius="xl"
-                    variant="light"
-                  >
-                    Load Data
-                  </Button>
-                )}
-                <Tooltip label={`Switch to ${isDark ? "light" : "dark"} mode`}>
-                  <ActionIcon
-                    variant="subtle"
-                    size="lg"
-                    radius="xl"
-                    onClick={() => toggleColorScheme()}
-                  >
-                    {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            </Group>
-          </motion.div>
+                </motion.div>
+              )}
 
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-            >
-              <Alert
-                icon={<IconAlertCircle size="1rem" />}
-                title="Error"
-                color="red"
-                withCloseButton
-                onClose={() => setError(null)}
-                radius="xl"
-              >
-                {error}
-              </Alert>
-            </motion.div>
-          )}
+              {activePage === "dashboard" && (
+                <Stack gap="md">
+                  {joinedRecords.length > 0 && (
+                    <>
+                      {metrics && (
+                        <ExecutiveSummary
+                          metrics={metrics}
+                          overallMetrics={overallMetrics}
+                          totalRecords={joinedRecords.length}
+                          filteredRecords={filteredRecords.length}
+                          filterLabel={filterLabel}
+                        />
+                      )}
 
-          {joinedRecords.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Paper shadow="sm" p="sm" radius="xl" className="glass-panel">
-                <Group gap="sm" align="end">
-                  <Select
-                    label="Routing Profile"
-                    placeholder="All routing profiles"
-                    data={routingProfileOptions}
-                    value={routingProfileFilter}
-                    onChange={setRoutingProfileFilter}
-                    clearable
-                    searchable
-                    style={{ flex: 1, minWidth: 180 }}
-                    leftSection={<IconFilter size={14} />}
-                  />
-                  <Select
-                    label="Initiation Method"
-                    placeholder="All methods"
-                    data={initiationMethodOptions}
-                    value={initiationMethodFilter}
-                    onChange={setInitiationMethodFilter}
-                    clearable
-                    searchable
-                    style={{ flex: 1, minWidth: 180 }}
-                    leftSection={<IconFilter size={14} />}
-                  />
-                  <Select
-                    label="Phone Description"
-                    placeholder="All descriptions"
-                    data={descriptionOptions}
-                    value={descriptionFilter}
-                    onChange={setDescriptionFilter}
-                    clearable
-                    searchable
-                    style={{ flex: 1, minWidth: 180 }}
-                    leftSection={<IconFilter size={14} />}
-                  />
-                  {hasFilter && (
-                    <Button
-                      variant="subtle"
-                      color="gray"
-                      onClick={clearFilters}
-                      leftSection={<IconFilterOff size={16} />}
-                      style={{ marginBottom: 1 }}
-                    >
-                      Clear
-                    </Button>
+                      {metrics && (
+                        <ExportToolbar
+                          records={filteredRecords}
+                          metrics={metrics}
+                          totalRecords={joinedRecords.length}
+                          filteredRecords={filteredRecords.length}
+                          filterLabel={filterLabel}
+                        />
+                      )}
+
+                      {metrics && (
+                        <motion.div
+                          variants={staggerContainer}
+                          initial="hidden"
+                          animate="visible"
+                        >
+                          <Group grow>
+                            <BigNumberCard
+                              label="Records"
+                              value={filteredRecords.length}
+                              index={0}
+                            />
+                            <BigNumberCard
+                              label="Avg Agent Connect Time"
+                              stats={metrics.agentConnectTime}
+                              index={1}
+                            />
+                            <BigNumberCard
+                              label="Avg Handle Time"
+                              stats={metrics.handleTime}
+                              index={2}
+                            />
+                            <BigNumberCard
+                              label="Avg After ACW Time"
+                              stats={metrics.acwTime}
+                              index={3}
+                            />
+                          </Group>
+                        </motion.div>
+                      )}
+
+                      {metrics && (
+                        <MetricsSummary
+                          metrics={metrics}
+                          totalRecords={joinedRecords.length}
+                          filteredRecords={filteredRecords.length}
+                          filterLabel={filterLabel}
+                        />
+                      )}
+
+                  {filteredRecords.length > 0 && (
+                        <MetricsTable records={filteredRecords} />
+                      )}
+
+                      {missingDescriptionCount > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <Alert color="yellow" variant="light" radius="xl">
+                            <Group gap="xs">
+                              <Text fw={600}>
+                                {missingDescriptionCount.toLocaleString()}{" "}
+                                records
+                              </Text>
+                              <Text c="dimmed">
+                                have no phone description — the Phone
+                                Description filter will not show those entries
+                              </Text>
+                            </Group>
+                          </Alert>
+                        </motion.div>
+                      )}
+                    </>
                   )}
-                </Group>
-              </Paper>
-            </motion.div>
-          )}
 
-          {metrics && (
-            <ExecutiveSummary
-              metrics={metrics}
-              overallMetrics={overallMetrics}
-              totalRecords={joinedRecords.length}
-              filteredRecords={filteredRecords.length}
-              filterLabel={filterLabel}
-            />
-          )}
+                  {contactRecords.length > 0 && !metrics && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.2 }}
+                    >
+                      <Alert color="blue" variant="light" radius="xl">
+                        <Group gap="xs">
+                          <Text fw={600}>
+                            {joinedRecords.length.toLocaleString()} contact
+                            records
+                          </Text>
+                          <Text c="dimmed">
+                            loaded — no metrics available (timestamps may be
+                            empty)
+                          </Text>
+                        </Group>
+                      </Alert>
+                    </motion.div>
+                  )}
+                </Stack>
+              )}
 
-          {joinedRecords.length > 0 && metrics && (
-            <ExportToolbar
-              records={filteredRecords}
-              metrics={metrics}
-              totalRecords={joinedRecords.length}
-              filteredRecords={filteredRecords.length}
-              filterLabel={filterLabel}
-            />
-          )}
-
-          {metrics && (
-            <motion.div
-              variants={staggerContainer}
-              initial="hidden"
-              animate="visible"
-            >
-              <Group grow>
-                <BigNumberCard
-                  label="Records"
-                  value={filteredRecords.length}
-                  index={0}
+              {activePage === "phone-analysis" && (
+                <PhoneDescriptionBreakdown
+                  records={filteredRecords}
+                  totalRecords={joinedRecords.length}
+                  filteredRecords={filteredRecords.length}
+                  filterLabel={filterLabel}
                 />
-                <BigNumberCard
-                  label="Avg Agent Connect Time"
-                  stats={metrics.agentConnectTime}
-                  index={1}
-                />
-                <BigNumberCard
-                  label="Avg Handle Time"
-                  stats={metrics.handleTime}
-                  index={2}
-                />
-                <BigNumberCard
-                  label="Avg After ACW Time"
-                  stats={metrics.acwTime}
-                  index={3}
-                />
-              </Group>
-            </motion.div>
-          )}
+              )}
 
-          {metrics && (
-            <MetricsSummary
-              metrics={metrics}
-              totalRecords={joinedRecords.length}
-              filteredRecords={filteredRecords.length}
-              filterLabel={filterLabel}
-            />
-          )}
+              {activePage === "sla" && <SlaAnalysis records={filteredRecords} />}
 
-          {filteredRecords.length > 0 && (
-            <MetricsTable records={filteredRecords} />
-          )}
-
-          {missingDescriptionCount > 0 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              transition={{ duration: 0.3 }}
-            >
-              <Alert color="yellow" variant="light" radius="xl">
-                <Group gap="xs">
-                  <Text fw={600}>
-                    {missingDescriptionCount.toLocaleString()} records
-                  </Text>
-                  <Text c="dimmed">
-                    have no phone description — the Phone Description
-                    filter will not show those entries
-                  </Text>
-                </Group>
-              </Alert>
-            </motion.div>
-          )}
-
-          {contactRecords.length > 0 && !metrics && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              <Alert color="blue" variant="light" radius="xl">
-                <Group gap="xs">
-                  <Text fw={600}>
-                    {joinedRecords.length.toLocaleString()} contact records
-                  </Text>
-                  <Text c="dimmed">
-                    loaded — no metrics available (timestamps may be empty)
-                  </Text>
-                </Group>
-              </Alert>
-            </motion.div>
-          )}
-        </Stack>
-      </Container>
+              {activePage === "usage" && <SamplePage />}
+            </Stack>
+          </Container>
+        </AppShell.Main>
+      </AppShell>
 
       <DataLoaderModal
         opened={dataModalOpened}
