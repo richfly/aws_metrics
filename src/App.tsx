@@ -48,7 +48,7 @@ import { SlaInclusiveAnalysis } from "./components/SlaInclusiveAnalysis";
 import { AbandonmentAnalysis } from "./components/AbandonmentAnalysis";
 import { DashboardOverview } from "./components/DashboardOverview";
 import { WbrPage } from "./components/WbrPage";
-import { SamplePage } from "./components/SamplePage";
+import { DocumentationPage } from "./components/DocumentationPage";
 import { LoginPage } from "./components/LoginPage";
 import { useAuth } from "./contexts/AuthContext";
 import { supabase } from "./lib/supabase";
@@ -728,7 +728,7 @@ export default function App() {
             style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
           />
           <NavLink
-            label="Usage & Definitions"
+            label="Documentation"
             leftSection={<IconBook size={20} />}
             active={activePage === "usage"}
             onClick={() => setActivePage("usage")}
@@ -967,7 +967,7 @@ export default function App() {
                 <AbandonmentAnalysis records={filteredRecords} />
               )}
 
-              {activePage === "usage" && <SamplePage />}
+              {activePage === "usage" && <DocumentationPage />}
             </Stack>
           </Container>
         </AppShell.Main>

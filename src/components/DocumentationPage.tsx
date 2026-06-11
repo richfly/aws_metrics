@@ -10,23 +10,41 @@ import {
   IconCalendar,
   IconExclamationCircle,
   IconClock,
+  IconHourglass,
+  IconCloud,
+  IconRefresh,
 } from "@tabler/icons-react";
 
 const sections = [
   {
+    icon: IconCloud,
+    title: "Account & Login",
+    body: "Sign in with the shared team credentials. Sessions persist across browser refreshes — you stay logged in until you click the sign-out button in the header.",
+  },
+  {
     icon: IconDatabase,
-    title: "Getting Started",
-    body: "Upload two CSVs exported from Amazon Connect: Contact Search Results (contacts) and Phone Numbers. The app joins them on phone number to enrich contact records with phone descriptions.",
+    title: "Data Storage",
+    body: "All uploaded data lives in Supabase (Postgres). Each upload upserts by contact_id, so re-uploading the same CSV updates existing rows and new rows get added. Data persists across sessions and is shared across all users signed into the same account.",
+  },
+  {
+    icon: IconRefresh,
+    title: "Live Updates",
+    body: "The app subscribes to Supabase real-time events. New or updated rows appear in the dashboard within ~2 seconds of landing in the database — no manual refresh needed.",
   },
   {
     icon: IconUpload,
     title: "Loading Data",
-    body: "Click the records badge or 'Load Data' in the header. Follow the 2-step wizard: upload the Phone Numbers CSV first, then the Contact Search Results CSV.",
+    body: "Click the records badge or 'Load Data' in the header. Follow the 2-step wizard: upload the Phone Numbers CSV first, then the Contact Search Results CSV. Uploads happen in 1000-row batches with a progress notification; nothing in the existing database is deleted.",
   },
   {
     icon: IconFilter,
     title: "Filters",
-    body: "Four multiselect filters sit at the top of every page: Queue, Routing Profile, Initiation Method, and Phone Description. A date range filter is also available. All charts and tables update instantly when you change a filter. Click 'Clear' to reset all filters. Filters are searchable and support multiple selections.",
+    body: "Four multiselect filters sit at the top of every page: Queue, Routing Profile, Initiation Method, and Phone Description. All charts and tables update instantly when you change a filter. Click 'Clear' to reset all filters. Filters are searchable and support multiple selections.",
+  },
+  {
+    icon: IconCalendar,
+    title: "Date Filter",
+    body: "The date picker supports two modes via a Single/Range toggle. In Range mode, pick a start and end date. In Single mode, pick one day. Days that have contact data show a small teal dot underneath the day number so you can see which days are populated at a glance.",
   },
   {
     icon: IconClock,
@@ -41,7 +59,7 @@ const pages = [
     title: "Dashboard",
     body: (
       <>
-        <Text size="sm">Executive overview designed:</Text>
+        <Text size="sm">Executive overview:</Text>
         <Text size="sm" component="ul" mt={4}>
           <li>
             <b>SLA Cards</b> — Contacts Handled, Service Level ≤60s
@@ -102,11 +120,12 @@ const pages = [
     body: (
       <>
         <Text size="sm">
-          Tracks Service Level Agreement attainment by day and shift:
+          Tracks Service Level Agreement attainment by day and shift (connected
+          contacts only — abandoned calls are excluded):
         </Text>
         <Text size="sm" component="ul" mt={4}>
           <li>
-            <b>Agent Connect Time SLA</b> — % of contacts connected within 30s,
+            <b>Agent Connect Time SLA</b> — % of contacts connected within 20s,
             60s, and 120s (initiation → connected)
           </li>
           <li>
@@ -123,6 +142,41 @@ const pages = [
         </Text>
         <Text size="sm" mt={4}>
           Each chart has a daily/weekly toggle and a 90% target reference line.
+        </Text>
+      </>
+    ),
+  },
+  {
+    icon: IconHourglass,
+    title: "SLA (Inclusive)",
+    body: (
+      <>
+        <Text size="sm">
+          Same as SLA Analysis but abandoned contacts are included in the
+          denominator:
+        </Text>
+        <Text size="sm" component="ul" mt={4}>
+          <li>
+            <b>Wait time</b> — for connected contacts, measured from
+            initiation → connected. For abandoned contacts, measured from
+            initiation → disconnect.
+          </li>
+          <li>
+            <b>Standard vs Inclusive comparison table</b> — shows the drop in
+            attainment for each threshold, which equals the share of contacts
+            that abandoned before the threshold
+          </li>
+          <li>
+            <b>By-shift breakdown</b> with abandonment included
+          </li>
+          <li>
+            <b>Threshold alert</b> — if abandonment is &gt; 30%, an orange
+            warning highlights the impact
+          </li>
+        </Text>
+        <Text size="sm" mt={4}>
+          Queue time SLA still only applies to connected contacts since
+          abandoners never connected.
         </Text>
       </>
     ),
@@ -184,12 +238,17 @@ const measures = [
   },
   {
     label: "SLA Attainment (Agent Connect)",
-    def: "Percentage of contacts connected to an agent within a given threshold (20s, 60s, or 120s) from initiation timestamp. Calculated per day and shift.",
+    def: "Percentage of contacts connected to an agent within a given threshold (20s, 60s, or 120s) from initiation timestamp. Calculated per day and shift. Only includes contacts that connected.",
     unit: "%",
   },
   {
     label: "SLA Attainment (Queue Time)",
-    def: "Percentage of contacts answered within a given threshold (20s, 60s, or 120s) from enqueue timestamp. Excludes IVR/prompt time before queuing.",
+    def: "Percentage of contacts answered within a given threshold (20s, 60s, or 120s) from enqueue timestamp. Excludes IVR/prompt time before queuing. Only includes contacts that connected.",
+    unit: "%",
+  },
+  {
+    label: "SLA Attainment (Inclusive)",
+    def: "Same as Agent Connect SLA, but abandoned contacts are included in the denominator. Their wait time is initiation → disconnect, and is compared against the same 20s/60s/120s thresholds. Shows how many customers were served within the target time, including those who gave up waiting.",
     unit: "%",
   },
   {
@@ -199,7 +258,7 @@ const measures = [
   },
 ];
 
-export function SamplePage() {
+export function DocumentationPage() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -208,7 +267,7 @@ export function SamplePage() {
     >
       <Paper shadow="sm" radius="md" p="md" className="glass-panel">
         <Text fw={600} size="lg" mb="md">
-          Usage & Definitions
+          Documentation
         </Text>
 
         <Stack gap="lg">
