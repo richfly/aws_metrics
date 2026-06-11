@@ -16,6 +16,7 @@ import {
   NavLink,
   Loader,
   Center,
+  SegmentedControl,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { useMantineColorScheme } from "@mantine/core";
@@ -33,6 +34,7 @@ import {
   IconCalendar,
   IconExclamationCircle,
   IconLogout,
+  IconHourglass,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { ContactRecord, PhoneRecord } from "./types";
@@ -42,6 +44,7 @@ import { calculateMetrics, parseDate } from "./utils/metricsCalculator";
 import { DataLoaderModal } from "./components/DataLoaderModal";
 import { PhoneDescriptionBreakdown } from "./components/PhoneDescriptionBreakdown";
 import { SlaAnalysis } from "./components/SlaAnalysis";
+import { SlaInclusiveAnalysis } from "./components/SlaInclusiveAnalysis";
 import { AbandonmentAnalysis } from "./components/AbandonmentAnalysis";
 import { DashboardOverview } from "./components/DashboardOverview";
 import { WbrPage } from "./components/WbrPage";
@@ -158,6 +161,7 @@ export default function App() {
     null,
     null,
   ]);
+  const [dateMode, setDateMode] = useState<"single" | "range">("range");
   const [dataLoadedAt, setDataLoadedAt] = useState<Date | null>(null);
   const [dataModalOpened, setDataModalOpened] = useState(false);
   const [freshLabel, setFreshLabel] = useState<string | null>(null);
@@ -168,7 +172,7 @@ export default function App() {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const isDark = colorScheme === "dark";
   const [activePage, setActivePage] = useState<
-    "dashboard" | "wbr" | "phone-analysis" | "sla" | "abandonment" | "usage"
+    "dashboard" | "wbr" | "phone-analysis" | "sla" | "sla-inclusive" | "abandonment" | "usage"
   >("dashboard");
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
@@ -562,6 +566,16 @@ export default function App() {
     [joinedRecords],
   );
 
+  const datesWithData = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of joinedRecords) {
+      if (r.initiationTimestamp && r.initiationTimestamp.length >= 10) {
+        set.add(r.initiationTimestamp.slice(0, 10));
+      }
+    }
+    return set;
+  }, [joinedRecords]);
+
   if (loading) {
     return (
       <Box className="app-bg" style={{ minHeight: "100vh" }}>
@@ -698,6 +712,14 @@ export default function App() {
             style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
           />
           <NavLink
+            label="SLA (inclusive)"
+            leftSection={<IconHourglass size={20} />}
+            active={activePage === "sla-inclusive"}
+            onClick={() => setActivePage("sla-inclusive")}
+            variant="light"
+            style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
+          />
+          <NavLink
             label="Abandonment"
             leftSection={<IconExclamationCircle size={20} />}
             active={activePage === "abandonment"}
@@ -751,16 +773,103 @@ export default function App() {
                   >
                     <Stack gap="sm">
                       <Group gap="sm" align="end" grow preventGrowOverflow={false}>
-                        <DatePickerInput
-                          type="range"
-                          label="Date Range"
-                          placeholder="Pick dates"
-                          value={dateRange}
-                          onChange={setDateRange}
-                          clearable
-                          leftSection={<IconCalendar size={16} />}
-                          style={{ minWidth: 200 }}
-                        />
+                        <Stack gap={4} style={{ minWidth: 220 }}>
+                          <Group justify="space-between" align="center" wrap="nowrap">
+                            <Text size="sm" fw={500}>
+                              {dateMode === "single" ? "Date" : "Date Range"}
+                            </Text>
+                            <SegmentedControl
+                              size="xs"
+                              value={dateMode}
+                              onChange={(v) => setDateMode(v as "single" | "range")}
+                              data={[
+                                { value: "single", label: "Single" },
+                                { value: "range", label: "Range" },
+                              ]}
+                            />
+                          </Group>
+                          {dateMode === "range" ? (
+                            <DatePickerInput
+                              type="range"
+                              placeholder="Pick dates"
+                              value={dateRange}
+                              onChange={(v) => setDateRange(v ?? [null, null])}
+                              clearable
+                              leftSection={<IconCalendar size={16} />}
+                              renderDay={(date) => {
+                                const dateStr = date.toISOString().slice(0, 10)
+                                const hasData = datesWithData.has(dateStr)
+                                return (
+                                  <div
+                                    style={{
+                                      position: "relative",
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      width: "100%",
+                                      height: "100%",
+                                    }}
+                                  >
+                                    <div>{date.getDate()}</div>
+                                    {hasData && (
+                                      <div
+                                        style={{
+                                          position: "absolute",
+                                          bottom: 2,
+                                          width: 4,
+                                          height: 4,
+                                          borderRadius: "50%",
+                                          background: "var(--mantine-color-teal-5)",
+                                        }}
+                                      />
+                                    )}
+                                  </div>
+                                )
+                              }}
+                            />
+                          ) : (
+                            <DatePickerInput
+                              type="default"
+                              placeholder="Pick a date"
+                              value={dateRange[0]}
+                              onChange={(d) => setDateRange(d ? [d, d] : [null, null])}
+                              clearable
+                              leftSection={<IconCalendar size={16} />}
+                              renderDay={(date) => {
+                                const dateStr = date.toISOString().slice(0, 10)
+                                const hasData = datesWithData.has(dateStr)
+                                return (
+                                  <div
+                                    style={{
+                                      position: "relative",
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      width: "100%",
+                                      height: "100%",
+                                    }}
+                                  >
+                                    <div>{date.getDate()}</div>
+                                    {hasData && (
+                                      <div
+                                        style={{
+                                          position: "absolute",
+                                          bottom: 2,
+                                          width: 4,
+                                          height: 4,
+                                          borderRadius: "50%",
+                                          background: "var(--mantine-color-teal-5)",
+                                        }}
+                                      />
+                                    )}
+                                  </div>
+                                )
+                              }}
+                            />
+                          )}
+                        </Stack>
                         <MultiSelect
                           label="Initiation Method"
                           placeholder="All methods"
@@ -851,6 +960,8 @@ export default function App() {
               )}
 
               {activePage === "sla" && <SlaAnalysis records={filteredRecords} />}
+
+              {activePage === "sla-inclusive" && <SlaInclusiveAnalysis records={filteredRecords} />}
 
               {activePage === "abandonment" && (
                 <AbandonmentAnalysis records={filteredRecords} />

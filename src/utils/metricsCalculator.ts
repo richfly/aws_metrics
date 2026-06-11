@@ -343,3 +343,216 @@ function secondsDiff(start: string, end: string): number | null {
   if (!d1 || !d2) return null
   return (d2.getTime() - d1.getTime()) / 1000
 }
+
+// Inclusive SLA: contacts that abandoned are counted in the denominator.
+// For abandoned contacts, the wait time is disconnectTimestamp - initiationTimestamp
+// (the time the caller waited before hanging up). All three thresholds (20s, 60s, 120s)
+// are applied to that wait time — if a caller abandoned within 20s, they met the 20s SLA.
+
+export function calculateInclusiveDailySla(records: ContactRecord[]): DailySlaRow[] {
+  const groups = new Map<string, {
+    total: number
+    below20s: number
+    below60s: number
+    below120s: number
+    qBelow20s: number
+    qBelow60s: number
+    qBelow120s: number
+  }>()
+
+  for (const r of records) {
+    const d = parseDate(r.initiationTimestamp)
+    if (!d) continue
+
+    let waitSec: number | null
+    if (r.connectedToAgentTimestamp) {
+      waitSec = secondsDiff(r.initiationTimestamp, r.connectedToAgentTimestamp)
+    } else {
+      waitSec = secondsDiff(r.initiationTimestamp, r.disconnectTimestamp)
+    }
+    if (waitSec === null) continue
+
+    const qSec = r.connectedToAgentTimestamp
+      ? secondsDiff(r.enqueueTimestamp, r.connectedToAgentTimestamp)
+      : null
+
+    const dateStr = d.toISOString().slice(0, 10)
+    const ws = weekStartStr(d)
+    const hour = d.getHours()
+    const shift = getShift(hour)
+    const key = `${dateStr}|${shift}`
+
+    let g = groups.get(key)
+    if (!g) {
+      g = { total: 0, below20s: 0, below60s: 0, below120s: 0, qBelow20s: 0, qBelow60s: 0, qBelow120s: 0 }
+      groups.set(key, g)
+    }
+
+    g.total++
+    if (waitSec <= 120) g.below120s++
+    if (waitSec <= 60) g.below60s++
+    if (waitSec <= 20) g.below20s++
+
+    if (qSec !== null) {
+      if (qSec <= 120) g.qBelow120s++
+      if (qSec <= 60) g.qBelow60s++
+      if (qSec <= 20) g.qBelow20s++
+    }
+  }
+
+  const result: DailySlaRow[] = []
+  for (const [key, g] of groups) {
+    const [date, shift] = key.split("|")
+    const dateObj = parseDate(date)
+    const ws = dateObj ? weekStartStr(dateObj) : date
+    result.push({
+      date,
+      weekStart: ws,
+      shift,
+      total: g.total,
+      below20s: g.below20s,
+      below60s: g.below60s,
+      below120s: g.below120s,
+      pct20s: (g.below20s / g.total) * 100,
+      pct60s: (g.below60s / g.total) * 100,
+      pct120s: (g.below120s / g.total) * 100,
+      qBelow20s: g.qBelow20s,
+      qBelow60s: g.qBelow60s,
+      qBelow120s: g.qBelow120s,
+      qPct20s: g.qBelow20s > 0 ? (g.qBelow20s / g.total) * 100 : 0,
+      qPct60s: g.qBelow60s > 0 ? (g.qBelow60s / g.total) * 100 : 0,
+      qPct120s: g.qBelow120s > 0 ? (g.qBelow120s / g.total) * 100 : 0,
+    })
+  }
+
+  result.sort((a, b) => {
+    const dc = a.date.localeCompare(b.date)
+    return dc !== 0 ? dc : a.shift.localeCompare(b.shift)
+  })
+
+  return result
+}
+
+export function calculateInclusiveOverallSla(records: ContactRecord[]): OverallSlaStats {
+  let total = 0
+  let below20s = 0
+  let below60s = 0
+  let below120s = 0
+  let qBelow20s = 0
+  let qBelow60s = 0
+  let qBelow120s = 0
+
+  for (const r of records) {
+    let waitSec: number | null
+    if (r.connectedToAgentTimestamp) {
+      waitSec = secondsDiff(r.initiationTimestamp, r.connectedToAgentTimestamp)
+    } else {
+      waitSec = secondsDiff(r.initiationTimestamp, r.disconnectTimestamp)
+    }
+    if (waitSec === null) continue
+
+    total++
+    if (waitSec <= 120) below120s++
+    if (waitSec <= 60) below60s++
+    if (waitSec <= 20) below20s++
+
+    const qSec = r.connectedToAgentTimestamp
+      ? secondsDiff(r.enqueueTimestamp, r.connectedToAgentTimestamp)
+      : null
+    if (qSec !== null) {
+      if (qSec <= 120) qBelow120s++
+      if (qSec <= 60) qBelow60s++
+      if (qSec <= 20) qBelow20s++
+    }
+  }
+
+  return {
+    total,
+    pct20s: total > 0 ? (below20s / total) * 100 : 0,
+    pct60s: total > 0 ? (below60s / total) * 100 : 0,
+    pct120s: total > 0 ? (below120s / total) * 100 : 0,
+    qPct20s: total > 0 ? (qBelow20s / total) * 100 : 0,
+    qPct60s: total > 0 ? (qBelow60s / total) * 100 : 0,
+    qPct120s: total > 0 ? (qBelow120s / total) * 100 : 0,
+  }
+}
+
+export function calculateInclusiveSlaByShift(records: ContactRecord[]): ShiftSlaRow[] {
+  const map = new Map<string, {
+    total: number
+    below20s: number
+    below60s: number
+    below120s: number
+    qBelow20s: number
+    qBelow60s: number
+    qBelow120s: number
+  }>()
+
+  for (const r of records) {
+    const d = parseDate(r.initiationTimestamp)
+    if (!d) continue
+
+    let waitSec: number | null
+    if (r.connectedToAgentTimestamp) {
+      waitSec = secondsDiff(r.initiationTimestamp, r.connectedToAgentTimestamp)
+    } else {
+      waitSec = secondsDiff(r.initiationTimestamp, r.disconnectTimestamp)
+    }
+    if (waitSec === null) continue
+
+    const hour = d.getHours()
+    const shift = getShift(hour)
+
+    let g = map.get(shift)
+    if (!g) {
+      g = { total: 0, below20s: 0, below60s: 0, below120s: 0, qBelow20s: 0, qBelow60s: 0, qBelow120s: 0 }
+      map.set(shift, g)
+    }
+
+    g.total++
+    if (waitSec <= 120) g.below120s++
+    if (waitSec <= 60) g.below60s++
+    if (waitSec <= 20) g.below20s++
+
+    const qSec = r.connectedToAgentTimestamp
+      ? secondsDiff(r.enqueueTimestamp, r.connectedToAgentTimestamp)
+      : null
+    if (qSec !== null) {
+      if (qSec <= 120) g.qBelow120s++
+      if (qSec <= 60) g.qBelow60s++
+      if (qSec <= 20) g.qBelow20s++
+    }
+  }
+
+  return ["1st", "2nd", "3rd"]
+    .map((shift) => {
+      const g = map.get(shift)
+      if (!g) return null
+      return {
+        shift,
+        total: g.total,
+        pct20s: (g.below20s / g.total) * 100,
+        pct60s: (g.below60s / g.total) * 100,
+        pct120s: (g.below120s / g.total) * 100,
+        qPct20s: g.qBelow20s > 0 ? (g.qBelow20s / g.total) * 100 : 0,
+        qPct60s: g.qBelow60s > 0 ? (g.qBelow60s / g.total) * 100 : 0,
+        qPct120s: g.qBelow120s > 0 ? (g.qBelow120s / g.total) * 100 : 0,
+      }
+    })
+    .filter((r): r is ShiftSlaRow => r !== null)
+}
+
+export interface InclusiveSlaComparison {
+  standard: OverallSlaStats
+  inclusive: OverallSlaStats
+  abandoned: number
+  abandonedSharePct: number
+}
+
+export function calculateSlaComparison(records: ContactRecord[]): InclusiveSlaComparison {
+  const standard = calculateOverallSla(records)
+  const inclusive = calculateInclusiveOverallSla(records)
+  const abandoned = records.filter((r) => !r.connectedToAgentTimestamp).length
+  const abandonedSharePct = records.length > 0 ? (abandoned / records.length) * 100 : 0
+  return { standard, inclusive, abandoned, abandonedSharePct }
+}
