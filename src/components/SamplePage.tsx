@@ -110,7 +110,7 @@ const pages = [
             60s, and 120s (initiation → connected)
           </li>
           <li>
-            <b>Queue Time SLA</b> — % answered within 30s, 60s, and 120s from
+            <b>Queue Time SLA</b> — % answered within 20s, 60s, and 120s from
             enqueue (excludes IVR time)
           </li>
           <li>
@@ -184,12 +184,12 @@ const measures = [
   },
   {
     label: "SLA Attainment (Agent Connect)",
-    def: "Percentage of contacts connected to an agent within a given threshold (30s, 60s, or 120s) from initiation timestamp. Calculated per day and shift.",
+    def: "Percentage of contacts connected to an agent within a given threshold (20s, 60s, or 120s) from initiation timestamp. Calculated per day and shift.",
     unit: "%",
   },
   {
     label: "SLA Attainment (Queue Time)",
-    def: "Percentage of contacts answered within a given threshold (30s, 60s, or 120s) from enqueue timestamp. Excludes IVR/prompt time before queuing.",
+    def: "Percentage of contacts answered within a given threshold (20s, 60s, or 120s) from enqueue timestamp. Excludes IVR/prompt time before queuing.",
     unit: "%",
   },
   {

@@ -121,16 +121,16 @@ export interface DailySlaRow {
   weekStart: string
   shift: string
   total: number
-  below30s: number
+  below20s: number
   below60s: number
   below120s: number
-  pct30s: number
+  pct20s: number
   pct60s: number
   pct120s: number
-  qBelow30s: number
+  qBelow20s: number
   qBelow60s: number
   qBelow120s: number
-  qPct30s: number
+  qPct20s: number
   qPct60s: number
   qPct120s: number
 }
@@ -146,10 +146,10 @@ function weekStartStr(d: Date): string {
 export function calculateDailySla(records: ContactRecord[]): DailySlaRow[] {
   const groups = new Map<string, {
     total: number
-    below30s: number
+    below20s: number
     below60s: number
     below120s: number
-    qBelow30s: number
+    qBelow20s: number
     qBelow60s: number
     qBelow120s: number
   }>()
@@ -171,19 +171,19 @@ export function calculateDailySla(records: ContactRecord[]): DailySlaRow[] {
 
     let g = groups.get(key)
     if (!g) {
-      g = { total: 0, below30s: 0, below60s: 0, below120s: 0, qBelow30s: 0, qBelow60s: 0, qBelow120s: 0 }
+      g = { total: 0, below20s: 0, below60s: 0, below120s: 0, qBelow20s: 0, qBelow60s: 0, qBelow120s: 0 }
       groups.set(key, g)
     }
 
     g.total++
     if (connectSec <= 120) g.below120s++
     if (connectSec <= 60) g.below60s++
-    if (connectSec <= 30) g.below30s++
+    if (connectSec <= 20) g.below20s++
 
     if (qSec !== null) {
       if (qSec <= 120) g.qBelow120s++
       if (qSec <= 60) g.qBelow60s++
-      if (qSec <= 30) g.qBelow30s++
+      if (qSec <= 20) g.qBelow20s++
     }
   }
 
@@ -198,16 +198,16 @@ export function calculateDailySla(records: ContactRecord[]): DailySlaRow[] {
       weekStart: ws,
       shift,
       total: g.total,
-      below30s: g.below30s,
+      below20s: g.below20s,
       below60s: g.below60s,
       below120s: g.below120s,
-      pct30s: (g.below30s / g.total) * 100,
+      pct20s: (g.below20s / g.total) * 100,
       pct60s: (g.below60s / g.total) * 100,
       pct120s: (g.below120s / g.total) * 100,
-      qBelow30s: g.qBelow30s,
+      qBelow20s: g.qBelow20s,
       qBelow60s: g.qBelow60s,
       qBelow120s: g.qBelow120s,
-      qPct30s: g.qBelow30s > 0 ? (g.qBelow30s / g.total) * 100 : 0,
+      qPct20s: g.qBelow20s > 0 ? (g.qBelow20s / g.total) * 100 : 0,
       qPct60s: g.qBelow60s > 0 ? (g.qBelow60s / g.total) * 100 : 0,
       qPct120s: g.qBelow120s > 0 ? (g.qBelow120s / g.total) * 100 : 0,
     })
@@ -223,20 +223,20 @@ export function calculateDailySla(records: ContactRecord[]): DailySlaRow[] {
 
 export interface OverallSlaStats {
   total: number
-  pct30s: number
+  pct20s: number
   pct60s: number
   pct120s: number
-  qPct30s: number
+  qPct20s: number
   qPct60s: number
   qPct120s: number
 }
 
 export function calculateOverallSla(records: ContactRecord[]): OverallSlaStats {
   let total = 0
-  let below30s = 0
+  let below20s = 0
   let below60s = 0
   let below120s = 0
-  let qBelow30s = 0
+  let qBelow20s = 0
   let qBelow60s = 0
   let qBelow120s = 0
 
@@ -247,22 +247,22 @@ export function calculateOverallSla(records: ContactRecord[]): OverallSlaStats {
     total++
     if (connectSec <= 120) below120s++
     if (connectSec <= 60) below60s++
-    if (connectSec <= 30) below30s++
+    if (connectSec <= 20) below20s++
 
     const qSec = secondsDiff(r.enqueueTimestamp, r.connectedToAgentTimestamp)
     if (qSec !== null) {
       if (qSec <= 120) qBelow120s++
       if (qSec <= 60) qBelow60s++
-      if (qSec <= 30) qBelow30s++
+      if (qSec <= 20) qBelow20s++
     }
   }
 
   return {
     total,
-    pct30s: total > 0 ? (below30s / total) * 100 : 0,
+    pct20s: total > 0 ? (below20s / total) * 100 : 0,
     pct60s: total > 0 ? (below60s / total) * 100 : 0,
     pct120s: total > 0 ? (below120s / total) * 100 : 0,
-    qPct30s: total > 0 ? (qBelow30s / total) * 100 : 0,
+    qPct20s: total > 0 ? (qBelow20s / total) * 100 : 0,
     qPct60s: total > 0 ? (qBelow60s / total) * 100 : 0,
     qPct120s: total > 0 ? (qBelow120s / total) * 100 : 0,
   }
@@ -271,10 +271,10 @@ export function calculateOverallSla(records: ContactRecord[]): OverallSlaStats {
 export interface ShiftSlaRow {
   shift: string
   total: number
-  pct30s: number
+  pct20s: number
   pct60s: number
   pct120s: number
-  qPct30s: number
+  qPct20s: number
   qPct60s: number
   qPct120s: number
 }
@@ -282,10 +282,10 @@ export interface ShiftSlaRow {
 export function calculateSlaByShift(records: ContactRecord[]): ShiftSlaRow[] {
   const map = new Map<string, {
     total: number
-    below30s: number
+    below20s: number
     below60s: number
     below120s: number
-    qBelow30s: number
+    qBelow20s: number
     qBelow60s: number
     qBelow120s: number
   }>()
@@ -302,20 +302,20 @@ export function calculateSlaByShift(records: ContactRecord[]): ShiftSlaRow[] {
 
     let g = map.get(shift)
     if (!g) {
-      g = { total: 0, below30s: 0, below60s: 0, below120s: 0, qBelow30s: 0, qBelow60s: 0, qBelow120s: 0 }
+      g = { total: 0, below20s: 0, below60s: 0, below120s: 0, qBelow20s: 0, qBelow60s: 0, qBelow120s: 0 }
       map.set(shift, g)
     }
 
     g.total++
     if (connectSec <= 120) g.below120s++
     if (connectSec <= 60) g.below60s++
-    if (connectSec <= 30) g.below30s++
+    if (connectSec <= 20) g.below20s++
 
     const qSec = secondsDiff(r.enqueueTimestamp, r.connectedToAgentTimestamp)
     if (qSec !== null) {
       if (qSec <= 120) g.qBelow120s++
       if (qSec <= 60) g.qBelow60s++
-      if (qSec <= 30) g.qBelow30s++
+      if (qSec <= 20) g.qBelow20s++
     }
   }
 
@@ -326,10 +326,10 @@ export function calculateSlaByShift(records: ContactRecord[]): ShiftSlaRow[] {
       return {
         shift,
         total: g.total,
-        pct30s: (g.below30s / g.total) * 100,
+        pct20s: (g.below20s / g.total) * 100,
         pct60s: (g.below60s / g.total) * 100,
         pct120s: (g.below120s / g.total) * 100,
-        qPct30s: g.qBelow30s > 0 ? (g.qBelow30s / g.total) * 100 : 0,
+        qPct20s: g.qBelow20s > 0 ? (g.qBelow20s / g.total) * 100 : 0,
         qPct60s: g.qBelow60s > 0 ? (g.qBelow60s / g.total) * 100 : 0,
         qPct120s: g.qBelow120s > 0 ? (g.qBelow120s / g.total) * 100 : 0,
       }

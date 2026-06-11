@@ -14,6 +14,8 @@ import {
   Paper,
   AppShell,
   NavLink,
+  Loader,
+  Center,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { useMantineColorScheme } from "@mantine/core";
@@ -30,6 +32,7 @@ import {
   IconBook,
   IconCalendar,
   IconExclamationCircle,
+  IconLogout,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { ContactRecord, PhoneRecord } from "./types";
@@ -43,11 +46,104 @@ import { AbandonmentAnalysis } from "./components/AbandonmentAnalysis";
 import { DashboardOverview } from "./components/DashboardOverview";
 import { WbrPage } from "./components/WbrPage";
 import { SamplePage } from "./components/SamplePage";
+import { LoginPage } from "./components/LoginPage";
+import { useAuth } from "./contexts/AuthContext";
+import { supabase } from "./lib/supabase";
+import { notifications } from "@mantine/notifications";
 import "./index.css";
 
+const CONTACT_FIELDS: [keyof ContactRecord, string][] = [
+  ["contactId", "contact_id"],
+  ["channel", "channel"],
+  ["contactStatus", "contact_status"],
+  ["initiationTimestamp", "initiation_timestamp"],
+  ["systemPhoneNumber", "system_phone_number"],
+  ["queue", "queue"],
+  ["agent", "agent"],
+  ["customerPhoneNumber", "customer_phone_number"],
+  ["disconnectTimestamp", "disconnect_timestamp"],
+  ["contactDuration", "contact_duration"],
+  ["routingProfile", "routing_profile"],
+  ["connectedToAgentTimestamp", "connected_to_agent_timestamp"],
+  ["scheduledTimestamp", "scheduled_timestamp"],
+  ["enqueueTimestamp", "enqueue_timestamp"],
+  ["acwStartTimestamp", "acw_start_timestamp"],
+  ["acwEndTimestamp", "acw_end_timestamp"],
+  ["agentInteractionDuration", "agent_interaction_duration"],
+  ["agentConnectionAttempts", "agent_connection_attempts"],
+  ["numberOfHolds", "number_of_holds"],
+  ["initiationMethod", "initiation_method"],
+  ["disconnectReason", "disconnect_reason"],
+  ["firstContactFlowName", "first_contact_flow_name"],
+  ["contactDirection", "contact_direction"],
+  ["preferredAgents", "preferred_agents"],
+  ["systemEmailAddress", "system_email_address"],
+  ["customerEmailAddress", "customer_email_address"],
+  ["phoneDescription", "phone_description"],
+  ["phoneType", "phone_type"],
+  ["activeChannels", "active_channels"],
+  ["contactFlowIvr", "contact_flow_ivr"],
+  ["country", "country"],
+];
+
+const PHONE_FIELDS: [keyof PhoneRecord, string][] = [
+  ["phoneNumber", "phone_number"],
+  ["description", "description"],
+  ["phoneType", "phone_type"],
+  ["activeChannels", "active_channels"],
+  ["contactFlowIvr", "contact_flow_ivr"],
+  ["country", "country"],
+];
+
+function toSnake(record: Record<string, string>, fields: [string, string][]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [camel, snake] of fields) {
+    if (record[camel] !== undefined) out[snake] = record[camel];
+  }
+  return out;
+}
+
+function toCamel(row: Record<string, unknown>, fields: [string, string][]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [camel, snake] of fields) {
+    const val = row[snake];
+    out[camel] = val != null ? String(val) : "";
+  }
+  return out;
+}
+
+async function upsertBatched(
+  table: "contacts" | "phone_records",
+  rows: Record<string, string>[],
+  onConflict: string,
+  notifyId: string,
+  label: string,
+  batchSize = 1000,
+): Promise<void> {
+  const totalBatches = Math.ceil(rows.length / batchSize);
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const batchNum = i / batchSize + 1;
+    const chunk = rows.slice(i, i + batchSize);
+    const { error } = await supabase
+      .from(table)
+      .upsert(chunk, { onConflict });
+    if (error) {
+      throw new Error(`Batch ${batchNum} / ${totalBatches} failed: ${error.message}`);
+    }
+    notifications.update({
+      id: notifyId,
+      message: `${batchNum} / ${totalBatches} batches (${label})`,
+      loading: true,
+    });
+  }
+}
+
 export default function App() {
+  const { session, loading } = useAuth();
   const [contactRecords, setContactRecords] = useState<ContactRecord[]>([]);
   const [phoneRecords, setPhoneRecords] = useState<PhoneRecord[]>([]);
+  const [dbContactCount, setDbContactCount] = useState<number | null>(null);
+  const [dbPhoneCount, setDbPhoneCount] = useState<number | null>(null);
   const [phoneCustomLoaded, setPhoneCustomLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [routingProfileFilter, setRoutingProfileFilter] = useState<string[]>(
@@ -65,12 +161,110 @@ export default function App() {
   const [dataLoadedAt, setDataLoadedAt] = useState<Date | null>(null);
   const [dataModalOpened, setDataModalOpened] = useState(false);
   const [freshLabel, setFreshLabel] = useState<string | null>(null);
+  const [lastUploadInfo, setLastUploadInfo] = useState<{ count: number; label: string } | null>(null);
+  const [supabaseLoading, setSupabaseLoading] = useState(false);
   const refreshInterval = useRef<number | undefined>(undefined);
+  const realtimeDebounce = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const isDark = colorScheme === "dark";
   const [activePage, setActivePage] = useState<
     "dashboard" | "wbr" | "phone-analysis" | "sla" | "abandonment" | "usage"
   >("dashboard");
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+
+  const fetchFromSupabase = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setSupabaseLoading(true);
+    try {
+      const PAGE_SIZE = 1000;
+
+      const fetchAllRows = async (table: "contacts" | "phone_records"): Promise<Record<string, unknown>[]> => {
+        const all: Record<string, unknown>[] = [];
+        let from = 0;
+        while (true) {
+          const { data, error } = await supabase
+            .from(table)
+            .select("*")
+            .range(from, from + PAGE_SIZE - 1);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          all.push(...(data as Record<string, unknown>[]));
+          if (data.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
+        return all;
+      };
+
+      const [contactsAll, phonesAll, contactsCountResult, phonesCountResult] = await Promise.all([
+        fetchAllRows("contacts"),
+        fetchAllRows("phone_records"),
+        supabase.from("contacts").select("*", { count: "exact", head: true }),
+        supabase.from("phone_records").select("*", { count: "exact", head: true }),
+      ]);
+
+      const mappedContacts = contactsAll.map(
+        (r) => toCamel(r, CONTACT_FIELDS) as unknown as ContactRecord,
+      );
+      setContactRecords(mappedContacts);
+
+      const mappedPhones = phonesAll.map(
+        (r) => toCamel(r, PHONE_FIELDS) as unknown as PhoneRecord,
+      );
+      setPhoneRecords(mappedPhones);
+      if (mappedPhones.length > 0) setPhoneCustomLoaded(true);
+
+      if (typeof contactsCountResult.count === "number") {
+        setDbContactCount(contactsCountResult.count);
+      }
+      if (typeof phonesCountResult.count === "number") {
+        setDbPhoneCount(phonesCountResult.count);
+      }
+
+      if (contactsAll.length > 0) {
+        setDataLoadedAt(new Date());
+        setLastSyncedAt(new Date());
+      }
+    } catch {
+      setError("Failed to load data from server");
+    } finally {
+      if (!options?.silent) setSupabaseLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (session) {
+      fetchFromSupabase();
+    }
+  }, [session, fetchFromSupabase]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    const handleChange = () => {
+      if (realtimeDebounce.current) clearTimeout(realtimeDebounce.current);
+      realtimeDebounce.current = setTimeout(() => {
+        fetchFromSupabase({ silent: true });
+      }, 2000);
+    };
+
+    const channel = supabase
+      .channel("db-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "contacts" },
+        handleChange,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "phone_records" },
+        handleChange,
+      )
+      .subscribe();
+
+    return () => {
+      if (realtimeDebounce.current) clearTimeout(realtimeDebounce.current);
+      supabase.removeChannel(channel);
+    };
+  }, [session, fetchFromSupabase]);
 
   useEffect(() => {
     if (!dataLoadedAt) {
@@ -79,26 +273,70 @@ export default function App() {
     }
     const update = () => {
       const secs = Math.floor((Date.now() - dataLoadedAt.getTime()) / 1000);
-      if (secs < 60) setFreshLabel("Loaded just now");
-      else if (secs < 120) setFreshLabel("Loaded 1 min ago");
-      else setFreshLabel(`Loaded ${Math.floor(secs / 60)} min ago`);
+      const prefix = lastUploadInfo
+        ? `${lastUploadInfo.count.toLocaleString()} ${lastUploadInfo.label} loaded`
+        : "Loaded";
+      if (secs < 60) setFreshLabel(`${prefix} just now`);
+      else if (secs < 120) setFreshLabel(`${prefix} 1 min ago`);
+      else setFreshLabel(`${prefix} ${Math.floor(secs / 60)} min ago`);
     };
     update();
     refreshInterval.current = window.setInterval(update, 30000);
     return () => {
       if (refreshInterval.current) clearInterval(refreshInterval.current);
     };
-  }, [dataLoadedAt]);
+  }, [dataLoadedAt, lastUploadInfo]);
 
-  const handleContactsUpload = (text: string) => {
+  const handleContactsUpload = async (text: string) => {
     try {
       const parsed = parseContactCsv(text);
       if (parsed.length === 0) {
         setError("No records found in contacts CSV");
         return;
       }
-      setContactRecords(parsed);
-      setDataLoadedAt(new Date());
+
+      if (session) {
+        const snakeData = parsed.map(
+          (r) => toSnake(r as unknown as Record<string, string>, CONTACT_FIELDS),
+        );
+        const nId = notifications.show({
+          title: "Syncing contacts",
+          message: "Starting upload...",
+          loading: true,
+          autoClose: false,
+          withCloseButton: false,
+        });
+        try {
+          await upsertBatched("contacts", snakeData, "contact_id", nId, "contacts");
+          notifications.update({
+            id: nId,
+            title: "Contacts synced",
+            message: `${parsed.length.toLocaleString()} records uploaded`,
+            color: "teal",
+            loading: false,
+            autoClose: 3000,
+          });
+          setLastUploadInfo({ count: parsed.length, label: "contacts" });
+          setDataLoadedAt(new Date());
+        } catch (e) {
+          notifications.update({
+            id: nId,
+            title: "Sync failed",
+            message: (e as Error).message,
+            color: "red",
+            loading: false,
+            autoClose: 5000,
+          });
+          setError((e as Error).message);
+          return;
+        }
+
+        await fetchFromSupabase();
+      } else {
+        setContactRecords(parsed);
+        setDataLoadedAt(new Date());
+      }
+
       setRoutingProfileFilter([]);
       setQueueFilter([]);
       setDescriptionFilter([]);
@@ -109,20 +347,63 @@ export default function App() {
     }
   };
 
-  const handlePhonesUpload = (text: string) => {
+  const handlePhonesUpload = async (text: string) => {
     try {
       const parsed = parsePhoneCsv(text);
       if (parsed.length === 0) {
         setError("No phone numbers found in CSV");
         return;
       }
-      setPhoneRecords(parsed);
-      setPhoneCustomLoaded(true);
+
+      if (session) {
+        const snakeData = parsed.map(
+          (r) => toSnake(r as unknown as Record<string, string>, PHONE_FIELDS),
+        );
+        const nId = notifications.show({
+          title: "Syncing phone numbers",
+          message: "Starting upload...",
+          loading: true,
+          autoClose: false,
+          withCloseButton: false,
+        });
+        try {
+          await upsertBatched("phone_records", snakeData, "phone_number", nId, "phone numbers");
+          notifications.update({
+            id: nId,
+            title: "Phone numbers synced",
+            message: `${parsed.length.toLocaleString()} numbers uploaded`,
+            color: "teal",
+            loading: false,
+            autoClose: 3000,
+          });
+          setLastUploadInfo({ count: parsed.length, label: "phone numbers" });
+          setDataLoadedAt(new Date());
+        } catch (e) {
+          notifications.update({
+            id: nId,
+            title: "Sync failed",
+            message: (e as Error).message,
+            color: "red",
+            loading: false,
+            autoClose: 5000,
+          });
+          setError((e as Error).message);
+          return;
+        }
+
+        await fetchFromSupabase();
+      } else {
+        setPhoneRecords(parsed);
+        setPhoneCustomLoaded(true);
+      }
+
       setError(null);
     } catch {
       setError("Failed to parse phone numbers CSV");
     }
   };
+
+  const { signOut } = useAuth();
 
   const joinedRecords = useMemo(
     () =>
@@ -281,6 +562,20 @@ export default function App() {
     [joinedRecords],
   );
 
+  if (loading) {
+    return (
+      <Box className="app-bg" style={{ minHeight: "100vh" }}>
+        <Center style={{ minHeight: "100vh" }}>
+          <Loader size="lg" />
+        </Center>
+      </Box>
+    );
+  }
+
+  if (!session) {
+    return <LoginPage />;
+  }
+
   return (
     <Box className="app-bg" style={{ minHeight: "100vh" }}>
       <AppShell
@@ -297,11 +592,14 @@ export default function App() {
               <Text c="dimmed" size="sm" visibleFrom="sm">
                 Agent Connect, ACW &amp; Handle Times
                 {freshLabel && <span> &middot; {freshLabel}</span>}
+                {supabaseLoading && <span> &middot; Syncing...</span>}
               </Text>
             </Group>
 
             <Group wrap="nowrap">
-              {joinedRecords.length > 0 ? (
+              {supabaseLoading ? (
+                <Loader size="sm" />
+              ) : joinedRecords.length > 0 ? (
                 <Paper
                   shadow="xs"
                   py={6}
@@ -316,9 +614,19 @@ export default function App() {
                     <Text size="sm" fw={500}>
                       {joinedRecords.length.toLocaleString()} records
                     </Text>
+                    {dbContactCount !== null && dbContactCount !== joinedRecords.length && (
+                      <Text size="xs" c="dimmed" visibleFrom="sm">
+                        (of {dbContactCount.toLocaleString()} in DB)
+                      </Text>
+                    )}
                     <Text size="xs" c="dimmed" visibleFrom="sm">
                       &middot; {phoneRecords.length.toLocaleString()} numbers
                     </Text>
+                    {dbPhoneCount !== null && dbPhoneCount !== phoneRecords.length && (
+                      <Text size="xs" c="dimmed" visibleFrom="sm">
+                        (of {dbPhoneCount.toLocaleString()} in DB)
+                      </Text>
+                    )}
                   </Group>
                 </Paper>
               ) : (
@@ -340,6 +648,16 @@ export default function App() {
                   onClick={() => toggleColorScheme()}
                 >
                   {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Sign out">
+                <ActionIcon
+                  variant="subtle"
+                  size="lg"
+                  radius="xl"
+                  onClick={() => signOut()}
+                >
+                  <IconLogout size={18} />
                 </ActionIcon>
               </Tooltip>
             </Group>

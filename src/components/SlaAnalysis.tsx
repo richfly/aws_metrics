@@ -32,17 +32,17 @@ const SHIFT_LABELS: Record<string, string> = {
   "3rd": "3rd (22:00–5:59)",
 }
 
-type SlaField = "pct30s" | "pct60s" | "pct120s" | "qPct30s" | "qPct60s" | "qPct120s"
+type SlaField = "pct20s" | "pct60s" | "pct120s" | "qPct20s" | "qPct60s" | "qPct120s"
 
 function aggregateByWeek(rows: ReturnType<typeof calculateDailySla>) {
   const map = new Map<string, {
     weekStart: string
     shift: string
     total: number
-    below30s: number
+    below20s: number
     below60s: number
     below120s: number
-    qBelow30s: number
+    qBelow20s: number
     qBelow60s: number
     qBelow120s: number
   }>()
@@ -51,14 +51,14 @@ function aggregateByWeek(rows: ReturnType<typeof calculateDailySla>) {
     const key = `${r.weekStart}|${r.shift}`
     let g = map.get(key)
     if (!g) {
-      g = { weekStart: r.weekStart, shift: r.shift, total: 0, below30s: 0, below60s: 0, below120s: 0, qBelow30s: 0, qBelow60s: 0, qBelow120s: 0 }
+      g = { weekStart: r.weekStart, shift: r.shift, total: 0, below20s: 0, below60s: 0, below120s: 0, qBelow20s: 0, qBelow60s: 0, qBelow120s: 0 }
       map.set(key, g)
     }
     g.total += r.total
-    g.below30s += r.below30s
+    g.below20s += r.below20s
     g.below60s += r.below60s
     g.below120s += r.below120s
-    g.qBelow30s += r.qBelow30s
+    g.qBelow20s += r.qBelow20s
     g.qBelow60s += r.qBelow60s
     g.qBelow120s += r.qBelow120s
   }
@@ -69,16 +69,16 @@ function aggregateByWeek(rows: ReturnType<typeof calculateDailySla>) {
       weekStart: g.weekStart,
       shift: g.shift,
       total: g.total,
-      below30s: g.below30s,
+      below20s: g.below20s,
       below60s: g.below60s,
       below120s: g.below120s,
-      pct30s: (g.below30s / g.total) * 100,
+      pct20s: (g.below20s / g.total) * 100,
       pct60s: (g.below60s / g.total) * 100,
       pct120s: (g.below120s / g.total) * 100,
-      qBelow30s: g.qBelow30s,
+      qBelow20s: g.qBelow20s,
       qBelow60s: g.qBelow60s,
       qBelow120s: g.qBelow120s,
-      qPct30s: (g.qBelow30s / g.total) * 100,
+      qPct20s: (g.qBelow20s / g.total) * 100,
       qPct60s: (g.qBelow60s / g.total) * 100,
       qPct120s: (g.qBelow120s / g.total) * 100,
     }))
@@ -133,13 +133,13 @@ function labelFormatter(label: any) {
 }
 
 const connectSpecs = [
-  { key: "pct30s" as SlaField, title: "≤ 30 seconds", subtitle: "% of contacts connected to agent within 30 seconds" },
+  { key: "pct20s" as SlaField, title: "≤ 20 seconds", subtitle: "% of contacts connected to agent within 30 seconds" },
   { key: "pct60s" as SlaField, title: "≤ 60 seconds", subtitle: "% of contacts connected to agent within 60 seconds" },
   { key: "pct120s" as SlaField, title: "≤ 120 seconds", subtitle: "% of contacts connected to agent within 120 seconds" },
 ]
 
 const queueSpecs = [
-  { key: "qPct30s" as SlaField, title: "≤ 30 seconds", subtitle: "% answered within 30s from enqueue (excludes IVR)" },
+  { key: "qPct20s" as SlaField, title: "≤ 20 seconds", subtitle: "% answered within 30s from enqueue (excludes IVR)" },
   { key: "qPct60s" as SlaField, title: "≤ 60 seconds", subtitle: "% answered within 60s from enqueue (excludes IVR)" },
   { key: "qPct120s" as SlaField, title: "≤ 120 seconds", subtitle: "% answered within 120s from enqueue (excludes IVR)" },
 ]
@@ -226,8 +226,8 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                 <Text fw={700} size="xl">{overall.total.toLocaleString()}</Text>
               </Paper>
               <Paper p="md" radius="md" className="glass-panel" ta="center">
-                <Text size="xs" c="dimmed" tt="uppercase" fw={500}>Overall ≤ 30s</Text>
-                <Text fw={700} size="xl">{overall.pct30s.toFixed(1)}%</Text>
+                <Text size="xs" c="dimmed" tt="uppercase" fw={500}>Overall ≤ 20s</Text>
+                <Text fw={700} size="xl">{overall.pct20s.toFixed(1)}%</Text>
               </Paper>
               <Paper p="md" radius="md" className="glass-panel" ta="center">
                 <Text size="xs" c="dimmed" tt="uppercase" fw={500}>Overall ≤ 60s</Text>
@@ -249,7 +249,7 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                     <Table.Tr>
                       <Table.Th>Shift</Table.Th>
                       <Table.Th ta="right">Contacts Handled</Table.Th>
-                      <Table.Th ta="right">Avg ≤ 30s</Table.Th>
+                      <Table.Th ta="right">Avg ≤ 20s</Table.Th>
                       <Table.Th ta="right">Avg ≤ 60s</Table.Th>
                       <Table.Th ta="right">Avg ≤ 120s</Table.Th>
                     </Table.Tr>
@@ -259,7 +259,7 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                       <Table.Tr key={row.shift}>
                         <Table.Td fw={500}>{row.shift} Shift</Table.Td>
                         <Table.Td ta="right">{row.total.toLocaleString()}</Table.Td>
-                        <Table.Td ta="right">{row.pct30s.toFixed(1)}%</Table.Td>
+                        <Table.Td ta="right">{row.pct20s.toFixed(1)}%</Table.Td>
                         <Table.Td ta="right">{row.pct60s.toFixed(1)}%</Table.Td>
                         <Table.Td ta="right">{row.pct120s.toFixed(1)}%</Table.Td>
                       </Table.Tr>

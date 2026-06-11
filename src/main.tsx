@@ -4,6 +4,9 @@ import { MantineProvider, createTheme, type CSSVariablesResolver } from '@mantin
 import '@mantine/core/styles.css'
 import '@mantine/dates/styles.css'
 import '@mantine/dropzone/styles.css'
+import { AuthProvider } from './contexts/AuthContext'
+import { Notifications } from '@mantine/notifications'
+import '@mantine/notifications/styles.css'
 import App from './App'
 
 const theme = createTheme({
@@ -32,7 +35,10 @@ const resolver: CSSVariablesResolver = () => ({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <MantineProvider theme={theme} defaultColorScheme="dark" cssVariablesResolver={resolver}>
-      <App />
+      <Notifications position="bottom-right" />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </MantineProvider>
   </React.StrictMode>
 )
