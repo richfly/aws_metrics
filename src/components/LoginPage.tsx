@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 export function LoginPage() {
   const { signIn } = useAuth()
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState('team@company.com')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -46,7 +46,6 @@ export function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.currentTarget.value)}
                   required
-                  autoFocus
                 />
 
                 <PasswordInput
@@ -55,6 +54,7 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.currentTarget.value)}
                   required
+                  autoFocus
                 />
 
                 <Button type="submit" loading={loading} fullWidth radius="md">
