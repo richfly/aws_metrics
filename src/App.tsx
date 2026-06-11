@@ -15,6 +15,7 @@ import {
   AppShell,
   NavLink,
 } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
 import { useMantineColorScheme } from "@mantine/core";
 import {
   IconAlertCircle,
@@ -33,7 +34,7 @@ import { motion } from "framer-motion";
 import { ContactRecord, PhoneRecord } from "./types";
 import { parseContactCsv, parsePhoneCsv } from "./utils/csvParser";
 import { joinData } from "./utils/dataJoiner";
-import { calculateMetrics } from "./utils/metricsCalculator";
+import { calculateMetrics, parseDate } from "./utils/metricsCalculator";
 import { DataLoaderModal } from "./components/DataLoaderModal";
 import { BigNumberCard } from "./components/BigNumberCard";
 import { MetricsTable } from "./components/MetricsTable";
@@ -66,6 +67,10 @@ export default function App() {
   const [initiationMethodFilter, setInitiationMethodFilter] = useState<
     string | null
   >(null);
+  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([
+    null,
+    null,
+  ]);
   const [dataLoadedAt, setDataLoadedAt] = useState<Date | null>(null);
   const [dataModalOpened, setDataModalOpened] = useState(false);
   const [freshLabel, setFreshLabel] = useState<string | null>(null);
@@ -176,6 +181,19 @@ export default function App() {
 
   const filteredRecords = useMemo(() => {
     let records = joinedRecords;
+    if (dateRange[0]) {
+      records = records.filter((r) => {
+        const d = parseDate(r.initiationTimestamp);
+        return d && d >= dateRange[0]!;
+      });
+    }
+    if (dateRange[1]) {
+      const end = new Date(dateRange[1].getTime() + 86400000);
+      records = records.filter((r) => {
+        const d = parseDate(r.initiationTimestamp);
+        return d && d < end;
+      });
+    }
     if (routingProfileFilter) {
       records = records.filter(
         (r) => r.routingProfile === routingProfileFilter,
@@ -192,6 +210,7 @@ export default function App() {
     return records;
   }, [
     joinedRecords,
+    dateRange,
     routingProfileFilter,
     descriptionFilter,
     initiationMethodFilter,
@@ -207,19 +226,35 @@ export default function App() {
     setRoutingProfileFilter(null);
     setDescriptionFilter(null);
     setInitiationMethodFilter(null);
+    setDateRange([null, null]);
   }, []);
 
   const filterLabel = useMemo(() => {
     const parts: string[] = [];
+    if (dateRange[0] && dateRange[1])
+      parts.push(
+        `${dateRange[0].toLocaleDateString()} – ${dateRange[1].toLocaleDateString()}`,
+      );
+    else if (dateRange[0])
+      parts.push(`From ${dateRange[0].toLocaleDateString()}`);
+    else if (dateRange[1])
+      parts.push(`To ${dateRange[1].toLocaleDateString()}`);
     if (routingProfileFilter)
       parts.push(`Routing Profile: ${routingProfileFilter}`);
     if (initiationMethodFilter)
       parts.push(`Initiation: ${initiationMethodFilter}`);
     if (descriptionFilter) parts.push(`Description: ${descriptionFilter}`);
     return parts.join(", ");
-  }, [routingProfileFilter, initiationMethodFilter, descriptionFilter]);
+  }, [
+    dateRange,
+    routingProfileFilter,
+    initiationMethodFilter,
+    descriptionFilter,
+  ]);
 
   const hasFilter = !!(
+    dateRange[0] ||
+    dateRange[1] ||
     routingProfileFilter ||
     descriptionFilter ||
     initiationMethodFilter
@@ -365,6 +400,15 @@ export default function App() {
                     className="glass-panel"
                   >
                     <Group gap="sm" align="end">
+                      <DatePickerInput
+                        type="range"
+                        label="Date Range"
+                        placeholder="Pick dates"
+                        value={dateRange}
+                        onChange={setDateRange}
+                        clearable
+                        style={{ flex: 1, minWidth: 200 }}
+                      />
                       <Select
                         label="Routing Profile"
                         placeholder="All routing profiles"
