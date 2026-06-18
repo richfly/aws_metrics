@@ -11,6 +11,8 @@ export interface AnomalyItem {
   baseline: number
   recent: number
   unit: string
+  description: string
+  recommendation: string
 }
 
 function parseDate(str: string): Date | null {
@@ -93,6 +95,10 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
         baseline: Math.round(allPct * 10) / 10,
         recent: Math.round(recentPct * 10) / 10,
         unit: '%',
+        description: `The "${queue}" queue's service level — the percentage of calls answered within 60 seconds — has fallen by ${drop.toFixed(1)} percentage points over the last 7 days compared to the all-time baseline of ${allPct.toFixed(1)}%. This means customers in this queue are waiting longer before reaching an agent.`,
+        recommendation: drop >= 15
+          ? `Urgent: Investigate staffing levels on the "${queue}" queue during peak hours. Consider rebalancing agents from lower-volume queues or adding overflow routing. Check if agents assigned to this queue have increased ACW time or multi-attempt rates.`
+          : `Review recent schedule changes, agent availability, and call volume trends for the "${queue}" queue. Check if new agents are assigned without adequate training, or if there are routing profile changes.`,
       })
     }
   }
@@ -136,6 +142,8 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
         baseline: Math.round(allPct * 10) / 10,
         recent: Math.round(recentPct * 10) / 10,
         unit: '%',
+        description: `Agent "${agent}" has seen a ${drop.toFixed(1)}-point drop in their SLA≤60s rate over the last 7 days, falling from an all-time average of ${allPct.toFixed(1)}% to ${recentPct.toFixed(1)}%. This indicates that a larger share of this agent's calls are taking longer to connect.`,
+        recommendation: `Check if "${agent}" has recent schedule changes, is handling more complex calls, or is experiencing higher multi-attempt rates. A coaching session or call review may help identify the root cause. Consider temporary queue reassignment if the trend continues.`,
       })
     }
   }
@@ -173,6 +181,10 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
       baseline: Math.round(allPct * 10) / 10,
       recent: Math.round(recentPct * 10) / 10,
       unit: '%',
+      description: `The "${queue}" queue has an abandonment rate of ${allPct.toFixed(1)}%. ${bump >= 3 ? `This has increased by ${bump.toFixed(1)} percentage points in the last 7 days compared to the all-time baseline.` : 'This is significantly above the overall average, meaning customers in this queue are far more likely to hang up before reaching an agent.'} ${allPct >= 80 ? 'At this level, most customers never reach an agent.' : ''}`,
+      recommendation: allPct >= 80
+        ? `Critical: The "${queue}" queue appears to function as a dead-end or overflow queue with no agent coverage. Evaluate whether this queue should have agents assigned, whether calls should be rerouted, or if the queue should be decommissioned. Customers reaching this queue have almost no chance of being served.`
+        : `Review staffing levels during peak hours for the "${queue}" queue. Check if queue-time SLA thresholds are being met. Consider adding overflow routing to backup queues or adjusting the IVR to set better customer expectations with estimated wait times.`,
     })
   }
 
@@ -228,6 +240,8 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
         baseline: 0,
         recent: Math.round(multiPct * 10) / 10,
         unit: '%',
+        description: `Agent "${agent}" has a multi-attempt rate of ${multiPct.toFixed(1)}%. This means ${g.multiAttempt} of their ${g.total} contacts required more than one connection attempt before the agent successfully answered. High multi-attempt rates indicate that the agent is declining or missing initial connection attempts, which increases customer wait time and wastes routing capacity.`,
+        recommendation: `Review "${agent}"'s agent connection attempts in detail. Common causes include: (1) agent not accepting calls promptly, (2) agent toggling status during active routing, (3) technical issues with the agent's softphone or connection. Consider coaching on availability status management and first-attempt answer rates.`,
       })
     }
     if (g.acwMins.length >= 3 && acwStd > 0) {
@@ -245,6 +259,10 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
           baseline: Math.round(acwMean * 10) / 10,
           recent: Math.round(avgAcw * 10) / 10,
           unit: 'min',
+          description: `Agent "${agent}" has an average After-Contact Work (ACW) time of ${avgAcw.toFixed(1)} minutes, which is ${Math.abs(z).toFixed(1)} standard deviations ${z > 0 ? 'above' : 'below'} the team baseline of ${acwMean.toFixed(1)} minutes. ${z > 0 ? 'Excessively high ACW time means the agent is spending significantly longer than peers wrapping up after each call, reducing their availability for new contacts.' : 'Unusually low ACW time may indicate the agent is skipping wrap-up tasks, which could affect data quality or after-call documentation.'}`,
+          recommendation: z > 0
+            ? `Investigate whether "${agent}" is handling more complex call types, struggling with post-call processes, or experiencing system delays. Very high ACW (especially >500 min) may indicate forgotten open ACW states — check if agents are leaving contacts in ACW status indefinitely. Consider setting ACW time limits or adding reminder notifications.`
+            : `Review whether "${agent}"'s low ACW time is due to efficient processes or shortcutting required wrap-up work. Verify after-call documentation quality and compliance requirements are being met.`,
         })
       }
     }
@@ -279,6 +297,8 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
       baseline: 0,
       recent: Math.round(repeatPct * 10) / 10,
       unit: '%',
+      description: `${repeatPct.toFixed(1)}% of all contacts are from customers who called back within 24 hours of their previous contact. This is a first-call resolution (FCR) indicator — a high rate means customers are not getting their issues resolved on the first contact, forcing them to call back. Industry benchmark for FCR is typically 70-75%, meaning 25-30% repeat contact is common, but rates above 40-50% signal systemic issues.`,
+      recommendation: `Analyze the top reasons for repeat contacts: (1) Check which queues have the highest repeat rates — they may need better agent training or authority to resolve issues. (2) Review disconnect reasons for first contacts that led to callbacks — are customers being disconnected? (3) Consider implementing callback or scheduled contact options to reduce repeat volume. (4) Review whether self-service options (IVR, chatbot) could deflect common repeat issues.`,
     })
   }
 
@@ -308,6 +328,10 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
           baseline: Math.round(volMean),
           recent: count,
           unit: 'contacts',
+          description: `On ${date}, the contact center ${z > 0 ? 'received' : 'handled'} ${count} contacts, which is ${Math.abs(z).toFixed(1)} standard deviations ${z > 0 ? 'above' : 'below'} the daily average of ${Math.round(volMean)} contacts. ${z > 0 ? 'This is an unusually high volume day that may indicate a marketing campaign, system incident, or seasonal event driving inbound traffic.' : 'This is an unusually low volume day that may indicate a holiday, system outage, or data gap.'}`,
+          recommendation: z > 0
+            ? `For volume spikes: (1) Check if a marketing campaign, product launch, or external event drove the increase. (2) Review abandonment rates during the spike — did they rise? (3) Assess whether staffing was adequate; if SLA dropped, plan scheduling buffers for similar events. (4) Consider proactive staffing adjustments for predictable recurring spikes.`
+            : `For volume drops: (1) Verify this isn't a data gap — check if contacts were properly recorded. (2) Compare to the same day of week in other weeks to confirm it's truly anomalous. (3) If confirmed, this may represent a low-cost staffing optimization opportunity.`,
         })
       }
     }
