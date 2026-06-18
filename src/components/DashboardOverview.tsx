@@ -13,7 +13,6 @@ import {
   ResponsiveContainer,
   ReferenceLine,
   ComposedChart,
-  Brush,
 } from 'recharts'
 import { ContactRecord } from '../types'
 import { calculateOverallSla, calculateDailySla, parseDate } from '../utils/metricsCalculator'
@@ -139,9 +138,6 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
     return { recentAvg, priorAvg, delta }
   }, [dailyVolume])
 
-  const showVolumeBrush = dailyVolume.length >= 7
-  const showSlaBrush = slaDailyData.length >= 7
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -227,14 +223,6 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
                       formatter={(value: any) => [Number(value).toLocaleString(), "Contacts"]}
                     />
                     <Bar dataKey="count" fill="var(--mantine-color-blue-5)" radius={[4, 4, 0, 0]} maxBarSize={32} name="Contacts" />
-                    {showVolumeBrush && (
-                      <Brush
-                        dataKey="date"
-                        height={28}
-                        stroke="var(--mantine-color-gray-6)"
-                        travellerWidth={8}
-                      />
-                    )}
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -267,14 +255,6 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
                     <ReferenceLine y={90} stroke="var(--mantine-color-red-6)" strokeDasharray="6 3" label={{ value: "90%", position: "right", fontSize: 11 }} />
                     <Bar dataKey="pct" fill="var(--mantine-color-teal-5)" radius={[4, 4, 0, 0]} maxBarSize={32} name="≤60s" />
                     <Line type="monotone" dataKey="trend" stroke="var(--mantine-color-text)" strokeWidth={2} dot={false} name="7-day avg" />
-                    {showSlaBrush && (
-                      <Brush
-                        dataKey="date"
-                        height={28}
-                        stroke="var(--mantine-color-gray-6)"
-                        travellerWidth={8}
-                      />
-                    )}
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>

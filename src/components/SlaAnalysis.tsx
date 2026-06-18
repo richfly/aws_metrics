@@ -12,7 +12,6 @@ import {
   Legend,
   ResponsiveContainer,
   ReferenceLine,
-  Brush,
 } from 'recharts'
 import { ContactRecord } from '../types'
 import { calculateDailySla, calculateOverallSla, calculateSlaByShift } from '../utils/metricsCalculator'
@@ -79,10 +78,6 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
   const volumeData = useMemo(() => buildVolumeData(slaRows, groupByWeek), [slaRows, groupByWeek])
 
   const shiftData = useMemo(() => calculateSlaByShift(records), [records])
-
-  const showConnectBrush = connectChartData[0]?.chartData.length >= 7
-  const showQueueBrush = queueChartData[0]?.chartData.length >= 7
-  const showVolumeBrush = volumeData.length >= 7
 
   return (
     <motion.div
@@ -226,14 +221,6 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                               maxBarSize={24}
                             />
                           ))}
-                          {showConnectBrush && (
-                            <Brush
-                              dataKey="date"
-                              height={28}
-                              stroke="var(--mantine-color-gray-6)"
-                              travellerWidth={8}
-                            />
-                          )}
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -285,14 +272,6 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                               maxBarSize={24}
                             />
                           ))}
-                          {showQueueBrush && (
-                            <Brush
-                              dataKey="date"
-                              height={28}
-                              stroke="var(--mantine-color-gray-6)"
-                              travellerWidth={8}
-                            />
-                          )}
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -338,14 +317,6 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                         maxBarSize={24}
                       />
                     ))}
-                    {showVolumeBrush && (
-                      <Brush
-                        dataKey="date"
-                        height={28}
-                        stroke="var(--mantine-color-gray-6)"
-                        travellerWidth={8}
-                      />
-                    )}
                   </BarChart>
                 </ResponsiveContainer>
               </div>

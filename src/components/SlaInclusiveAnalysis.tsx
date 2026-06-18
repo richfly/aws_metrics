@@ -12,7 +12,6 @@ import {
   Legend,
   ResponsiveContainer,
   ReferenceLine,
-  Brush,
 } from 'recharts'
 import { ContactRecord } from '../types'
 import {
@@ -72,8 +71,6 @@ export function SlaInclusiveAnalysis({ records }: SlaInclusiveAnalysisProps) {
   )
 
   const shiftData = useMemo(() => calculateInclusiveSlaByShift(records), [records])
-
-  const showInclusiveBrush = chartData[0]?.chartData.length >= 7
 
   return (
     <motion.div
@@ -336,14 +333,6 @@ export function SlaInclusiveAnalysis({ records }: SlaInclusiveAnalysisProps) {
                                 maxBarSize={24}
                               />
                             ))}
-                            {showInclusiveBrush && (
-                              <Brush
-                                dataKey="date"
-                                height={28}
-                                stroke="var(--mantine-color-gray-6)"
-                                travellerWidth={8}
-                              />
-                            )}
                           </BarChart>
                         </ResponsiveContainer>
                       </div>

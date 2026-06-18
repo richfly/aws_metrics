@@ -12,7 +12,6 @@ import {
   Legend,
   ResponsiveContainer,
   ComposedChart,
-  Brush,
 } from 'recharts'
 import { ContactRecord } from '../types'
 import { parseDate, getShift } from '../utils/metricsCalculator'
@@ -129,7 +128,6 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
   }))
 
   const chartHeight = Math.min(Math.max(queueData.length * 32, 180), 360)
-  const showDailyBrush = dailyChartData.length >= 7
 
   if (records.length === 0) {
     return (
@@ -249,14 +247,6 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
                   <Legend />
                   <Bar dataKey="Answered" stackId="a" fill="var(--mantine-color-green-6)" radius={[4, 4, 0, 0]} maxBarSize={24} />
                   <Bar dataKey="Abandoned" stackId="a" fill="var(--mantine-color-red-5)" radius={[4, 4, 0, 0]} maxBarSize={24} />
-                  {showDailyBrush && (
-                    <Brush
-                      dataKey="date"
-                      height={28}
-                      stroke="var(--mantine-color-gray-6)"
-                      travellerWidth={8}
-                    />
-                  )}
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
