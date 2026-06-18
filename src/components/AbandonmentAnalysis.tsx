@@ -12,6 +12,7 @@ import {
   Legend,
   ResponsiveContainer,
   ComposedChart,
+  Brush,
 } from 'recharts'
 import { ContactRecord } from '../types'
 import { parseDate, getShift } from '../utils/metricsCalculator'
@@ -26,6 +27,12 @@ function formatDate(str: string): string {
   if (!d) return str
   const parts = str.split("-")
   return `${parts[1]}/${parts[2]}`
+}
+
+const CURSOR_STROKE = {
+  strokeDasharray: "3 3",
+  stroke: "var(--mantine-color-gray-5)",
+  strokeWidth: 1,
 }
 
 export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
@@ -122,6 +129,7 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
   }))
 
   const chartHeight = Math.min(Math.max(queueData.length * 32, 180), 360)
+  const showDailyBrush = dailyChartData.length >= 7
 
   if (records.length === 0) {
     return (
@@ -170,11 +178,11 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
             <div ref={queueChartRef}>
               <ResponsiveContainer width="100%" height={chartHeight}>
                 <BarChart data={queueData} layout="vertical" margin={{ left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-5)" />
                   <XAxis type="number" tick={{ fontSize: 11 }} />
                   <YAxis type="category" dataKey="queue" tick={{ fontSize: 11 }} width={160} />
                   <RechartsTooltip
-                    cursor={{ fill: "var(--mantine-color-red-0)", opacity: 0.4 }}
+                    cursor={CURSOR_STROKE}
                     formatter={(value: any, name: any) => [value, name === "abandoned" ? "Abandoned" : name]}
                   />
                   <Bar dataKey="abandoned" fill="var(--mantine-color-red-5)" radius={[0, 4, 4, 0]} name="Abandoned" />
@@ -192,10 +200,10 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
             <div ref={reasonChartRef}>
               <ResponsiveContainer width="100%" height={chartHeight}>
                 <BarChart data={reasonData} layout="vertical" margin={{ left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-5)" />
                   <XAxis type="number" tick={{ fontSize: 11 }} />
                   <YAxis type="category" dataKey="reason" tick={{ fontSize: 11 }} width={140} />
-                  <RechartsTooltip cursor={{ fill: "var(--mantine-color-orange-0)", opacity: 0.4 }} />
+                  <RechartsTooltip cursor={CURSOR_STROKE} />
                   <Bar dataKey="count" fill="var(--mantine-color-orange-5)" radius={[0, 4, 4, 0]} name="Contacts" />
                 </BarChart>
               </ResponsiveContainer>
@@ -213,12 +221,12 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
             <div ref={shiftChartRef}>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={shiftChartData} margin={{ left: -8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-5)" />
                   <XAxis dataKey="shift" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
-                  <RechartsTooltip cursor={{ fill: "var(--mantine-color-gray-1)", opacity: 0.4 }} />
+                  <RechartsTooltip cursor={CURSOR_STROKE} />
                   <Legend />
-                  <Bar dataKey="Answered" fill="var(--mantine-color-teal-5)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="Answered" fill="var(--mantine-color-green-6)" radius={[4, 4, 0, 0]} maxBarSize={40} />
                   <Bar dataKey="Abandoned" fill="var(--mantine-color-red-5)" radius={[4, 4, 0, 0]} maxBarSize={40} />
                 </BarChart>
               </ResponsiveContainer>
@@ -232,15 +240,23 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
             </Group>
             <Text size="xs" c="dimmed" mb="md">Answered vs abandoned by day</Text>
             <div ref={dailyChartRef}>
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={240}>
                 <ComposedChart data={dailyChartData} margin={{ left: -8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-5)" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
-                  <RechartsTooltip cursor={{ fill: "var(--mantine-color-gray-1)", opacity: 0.4 }} />
+                  <RechartsTooltip cursor={CURSOR_STROKE} />
                   <Legend />
-                  <Bar dataKey="Answered" stackId="a" fill="var(--mantine-color-teal-5)" radius={[4, 4, 0, 0]} maxBarSize={24} />
+                  <Bar dataKey="Answered" stackId="a" fill="var(--mantine-color-green-6)" radius={[4, 4, 0, 0]} maxBarSize={24} />
                   <Bar dataKey="Abandoned" stackId="a" fill="var(--mantine-color-red-5)" radius={[4, 4, 0, 0]} maxBarSize={24} />
+                  {showDailyBrush && (
+                    <Brush
+                      dataKey="date"
+                      height={28}
+                      stroke="var(--mantine-color-gray-6)"
+                      travellerWidth={8}
+                    />
+                  )}
                 </ComposedChart>
               </ResponsiveContainer>
             </div>

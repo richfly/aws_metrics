@@ -12,6 +12,7 @@ import {
   Legend,
   ResponsiveContainer,
   ReferenceLine,
+  Brush,
 } from 'recharts'
 import { ContactRecord } from '../types'
 import {
@@ -35,6 +36,12 @@ interface SlaInclusiveAnalysisProps {
 }
 
 type SlaField = "pct20s" | "pct60s" | "pct120s"
+
+const CURSOR_STROKE = {
+  strokeDasharray: "3 3",
+  stroke: "var(--mantine-color-gray-5)",
+  strokeWidth: 1,
+}
 
 const connectSpecs = [
   { key: "pct20s" as SlaField, title: "≤ 20 seconds", subtitle: "% of contacts (including abandoners) ending within 20s" },
@@ -65,6 +72,8 @@ export function SlaInclusiveAnalysis({ records }: SlaInclusiveAnalysisProps) {
   )
 
   const shiftData = useMemo(() => calculateInclusiveSlaByShift(records), [records])
+
+  const showInclusiveBrush = chartData[0]?.chartData.length >= 7
 
   return (
     <motion.div
@@ -297,9 +306,9 @@ export function SlaInclusiveAnalysis({ records }: SlaInclusiveAnalysisProps) {
                       <div key={spec.key}>
                         <Text fw={500} size="xs" mb={4}>{spec.title}</Text>
                         <Text size="xs" c="dimmed" mb="xs">{spec.subtitle}</Text>
-                        <ResponsiveContainer width="100%" height={240}>
+                        <ResponsiveContainer width="100%" height={280}>
                           <BarChart data={spec.chartData} margin={{ left: -8 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-5)" />
                             <XAxis
                               dataKey="date"
                               tick={{ fontSize: 11 }}
@@ -307,7 +316,7 @@ export function SlaInclusiveAnalysis({ records }: SlaInclusiveAnalysisProps) {
                             />
                             <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
                             <RechartsTooltip
-                              cursor={{ fill: "var(--mantine-color-teal-0)", opacity: 0.4 }}
+                              cursor={CURSOR_STROKE}
                               formatter={(value: any) => [`${Number(value).toFixed(1)}%`]}
                               labelFormatter={labelFormatter}
                             />
@@ -327,6 +336,14 @@ export function SlaInclusiveAnalysis({ records }: SlaInclusiveAnalysisProps) {
                                 maxBarSize={24}
                               />
                             ))}
+                            {showInclusiveBrush && (
+                              <Brush
+                                dataKey="date"
+                                height={28}
+                                stroke="var(--mantine-color-gray-6)"
+                                travellerWidth={8}
+                              />
+                            )}
                           </BarChart>
                         </ResponsiveContainer>
                       </div>

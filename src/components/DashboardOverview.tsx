@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
   ComposedChart,
+  Brush,
 } from 'recharts'
 import { ContactRecord } from '../types'
 import { calculateOverallSla, calculateDailySla, parseDate } from '../utils/metricsCalculator'
@@ -20,6 +21,12 @@ import { ChartExportButton } from './ChartExportButton'
 
 interface DashboardOverviewProps {
   records: ContactRecord[]
+}
+
+const CURSOR_STROKE = {
+  strokeDasharray: "3 3",
+  stroke: "var(--mantine-color-gray-5)",
+  strokeWidth: 1,
 }
 
 function formatDate(str: string): string {
@@ -132,6 +139,9 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
     return { recentAvg, priorAvg, delta }
   }, [dailyVolume])
 
+  const showVolumeBrush = dailyVolume.length >= 7
+  const showSlaBrush = slaDailyData.length >= 7
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -207,16 +217,24 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
               </Group>
               <Text size="xs" c="dimmed" mb="md">Daily contact volume</Text>
               <div ref={volumeChartRef}>
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={dailyVolume} margin={{ left: -8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-5)" />
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <RechartsTooltip
-                      cursor={{ fill: "var(--mantine-color-blue-0)", opacity: 0.4 }}
+                      cursor={CURSOR_STROKE}
                       formatter={(value: any) => [Number(value).toLocaleString(), "Contacts"]}
                     />
                     <Bar dataKey="count" fill="var(--mantine-color-blue-5)" radius={[4, 4, 0, 0]} maxBarSize={32} name="Contacts" />
+                    {showVolumeBrush && (
+                      <Brush
+                        dataKey="date"
+                        height={28}
+                        stroke="var(--mantine-color-gray-6)"
+                        travellerWidth={8}
+                      />
+                    )}
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -226,7 +244,7 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
               <Group justify="space-between" mb="xs">
                 <Group gap="xs">
                   <Text fw={600} size="sm">Service Level Trend</Text>
-                <Tooltip label="% of contacts answered within 60 seconds per day, with 7-day rolling average" multiline w={240} withArrow>
+                <Tooltip label="% of contacts answered within 60 seconds per day, with 7-day rolling average. Drag the chart below to zoom." multiline w={280} withArrow>
                   <IconInfoCircle size={14} color="var(--mantine-color-dimmed)" style={{ cursor: "help" }} />
                 </Tooltip>
                 </Group>
@@ -234,13 +252,13 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
               </Group>
               <Text size="xs" c="dimmed" mb="md">≤60s daily with 7-day rolling average</Text>
               <div ref={slaChartRef}>
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={260}>
                   <ComposedChart data={slaDailyData} margin={{ left: -8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-5)" />
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
                     <RechartsTooltip
-                      cursor={{ strokeDasharray: "3 3", stroke: "var(--mantine-color-gray-5)" }}
+                      cursor={CURSOR_STROKE}
                       formatter={(value: any, name: any) => [
                         `${Number(value).toFixed(1)}%`,
                         name === "pct" ? "≤60s" : "7-day avg",
@@ -248,7 +266,15 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
                     />
                     <ReferenceLine y={90} stroke="var(--mantine-color-red-6)" strokeDasharray="6 3" label={{ value: "90%", position: "right", fontSize: 11 }} />
                     <Bar dataKey="pct" fill="var(--mantine-color-teal-5)" radius={[4, 4, 0, 0]} maxBarSize={32} name="≤60s" />
-                    <Line type="monotone" dataKey="trend" stroke="var(--mantine-color-yellow-5)" strokeWidth={2} dot={false} name="7-day avg" />
+                    <Line type="monotone" dataKey="trend" stroke="var(--mantine-color-text)" strokeWidth={2} dot={false} name="7-day avg" />
+                    {showSlaBrush && (
+                      <Brush
+                        dataKey="date"
+                        height={28}
+                        stroke="var(--mantine-color-gray-6)"
+                        travellerWidth={8}
+                      />
+                    )}
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>

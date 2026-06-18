@@ -1,7 +1,7 @@
 export const SHIFT_COLORS: Record<string, string> = {
-  "1st": "var(--mantine-color-blue-5)",
-  "2nd": "var(--mantine-color-teal-5)",
-  "3rd": "var(--mantine-color-violet-5)",
+  "1st": "var(--mantine-color-blue-6)",
+  "2nd": "var(--mantine-color-orange-7)",
+  "3rd": "var(--mantine-color-violet-6)",
 }
 
 export const SHIFT_LABELS: Record<string, string> = {

@@ -12,6 +12,7 @@ import {
   Legend,
   ResponsiveContainer,
   ReferenceLine,
+  Brush,
 } from 'recharts'
 import { ContactRecord } from '../types'
 import { calculateDailySla, calculateOverallSla, calculateSlaByShift } from '../utils/metricsCalculator'
@@ -24,7 +25,6 @@ import {
   labelFormatter,
   buildChartData,
   buildVolumeData,
-  type Shift,
 } from '../utils/slaChartUtils'
 
 interface SlaAnalysisProps {
@@ -33,8 +33,14 @@ interface SlaAnalysisProps {
 
 type SlaField = "pct20s" | "pct60s" | "pct120s" | "qPct20s" | "qPct60s" | "qPct120s"
 
+const CURSOR_STROKE = {
+  strokeDasharray: "3 3",
+  stroke: "var(--mantine-color-gray-5)",
+  strokeWidth: 1,
+}
+
 const connectSpecs = [
-  { key: "pct20s" as SlaField, title: "≤ 20 seconds", subtitle: "% of contacts connected to agent within 30 seconds" },
+  { key: "pct20s" as SlaField, title: "≤ 20 seconds", subtitle: "% of contacts connected to agent within 20 seconds" },
   { key: "pct60s" as SlaField, title: "≤ 60 seconds", subtitle: "% of contacts connected to agent within 60 seconds" },
   { key: "pct120s" as SlaField, title: "≤ 120 seconds", subtitle: "% of contacts connected to agent within 120 seconds" },
 ]
@@ -73,6 +79,10 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
   const volumeData = useMemo(() => buildVolumeData(slaRows, groupByWeek), [slaRows, groupByWeek])
 
   const shiftData = useMemo(() => calculateSlaByShift(records), [records])
+
+  const showConnectBrush = connectChartData[0]?.chartData.length >= 7
+  const showQueueBrush = queueChartData[0]?.chartData.length >= 7
+  const showVolumeBrush = volumeData.length >= 7
 
   return (
     <motion.div
@@ -186,9 +196,9 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                     <div key={spec.key}>
                       <Text fw={500} size="xs" mb={4}>{spec.title}</Text>
                       <Text size="xs" c="dimmed" mb="xs">{spec.subtitle}</Text>
-                      <ResponsiveContainer width="100%" height={240}>
+                      <ResponsiveContainer width="100%" height={280}>
                         <BarChart data={spec.chartData} margin={{ left: -8 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-5)" />
                           <XAxis
                             dataKey="date"
                             tick={{ fontSize: 11 }}
@@ -196,7 +206,7 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                           />
                           <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
                           <RechartsTooltip
-                            cursor={{ fill: "var(--mantine-color-teal-0)", opacity: 0.4 }}
+                            cursor={CURSOR_STROKE}
                             formatter={(value: any) => [`${Number(value).toFixed(1)}%`]}
                             labelFormatter={labelFormatter}
                           />
@@ -216,6 +226,14 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                               maxBarSize={24}
                             />
                           ))}
+                          {showConnectBrush && (
+                            <Brush
+                              dataKey="date"
+                              height={28}
+                              stroke="var(--mantine-color-gray-6)"
+                              travellerWidth={8}
+                            />
+                          )}
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -237,9 +255,9 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                     <div key={spec.key}>
                       <Text fw={500} size="xs" mb={4}>{spec.title}</Text>
                       <Text size="xs" c="dimmed" mb="xs">{spec.subtitle}</Text>
-                      <ResponsiveContainer width="100%" height={240}>
+                      <ResponsiveContainer width="100%" height={280}>
                         <BarChart data={spec.chartData} margin={{ left: -8 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-5)" />
                           <XAxis
                             dataKey="date"
                             tick={{ fontSize: 11 }}
@@ -247,7 +265,7 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                           />
                           <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
                           <RechartsTooltip
-                            cursor={{ fill: "var(--mantine-color-teal-0)", opacity: 0.4 }}
+                            cursor={CURSOR_STROKE}
                             formatter={(value: any) => [`${Number(value).toFixed(1)}%`]}
                             labelFormatter={labelFormatter}
                           />
@@ -267,6 +285,14 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                               maxBarSize={24}
                             />
                           ))}
+                          {showQueueBrush && (
+                            <Brush
+                              dataKey="date"
+                              height={28}
+                              stroke="var(--mantine-color-gray-6)"
+                              travellerWidth={8}
+                            />
+                          )}
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -283,9 +309,9 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
               </Group>
               <Text size="xs" c="dimmed" mb="md">Number of contacts handled per day by shift</Text>
               <div ref={volumeChartRef}>
-                <ResponsiveContainer width="100%" height={240}>
+                <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={volumeData} margin={{ left: -8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-5)" />
                     <XAxis
                       dataKey="date"
                       tick={{ fontSize: 11 }}
@@ -293,7 +319,7 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                     />
                     <YAxis tick={{ fontSize: 11 }} />
                     <RechartsTooltip
-                      cursor={{ fill: "var(--mantine-color-blue-0)", opacity: 0.4 }}
+                      cursor={CURSOR_STROKE}
                       formatter={(value: any) => [Number(value).toLocaleString()]}
                       labelFormatter={labelFormatter}
                     />
@@ -312,6 +338,14 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
                         maxBarSize={24}
                       />
                     ))}
+                    {showVolumeBrush && (
+                      <Brush
+                        dataKey="date"
+                        height={28}
+                        stroke="var(--mantine-color-gray-6)"
+                        travellerWidth={8}
+                      />
+                    )}
                   </BarChart>
                 </ResponsiveContainer>
               </div>
