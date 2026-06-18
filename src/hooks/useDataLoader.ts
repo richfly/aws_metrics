@@ -82,7 +82,7 @@ export interface DataLoaderState {
   setSupabaseLoading: (loading: boolean) => void
 }
 
-const PAGE_SIZE = 2000
+const PAGE_SIZE = 1000
 
 export function useDataLoader(session: unknown): DataLoaderState {
   const [contactRecords, setContactRecords] = useState<ContactRecord[]>([])
@@ -111,55 +111,47 @@ export function useDataLoader(session: unknown): DataLoaderState {
     }
     setLoadingProgress({ loaded: 0, total: null })
     try {
-      const contactsCountPromise = Promise.resolve(
-        supabase.from("contacts").select("*", { count: "exact", head: true }),
-      )
-        .then(({ count }) => {
-          if (typeof count === "number") {
-            setDbContactCount(count)
-            if (!options?.silent) {
-              console.timeEnd("[fetch] contacts count query")
-              console.log(`[fetch] ${count} contacts in DB`)
-            }
-          } else if (!options?.silent) {
-            console.timeEnd("[fetch] contacts count query")
-          }
-          return count
-        })
-        .catch((err: unknown) => {
-          if (!options?.silent) console.timeEnd("[fetch] contacts count query")
-          console.error("[fetch] contacts count query failed:", err)
-          return null
-        })
+      const contactsCountResult = await supabase
+        .from("contacts")
+        .select("*", { count: "exact", head: true })
+      if (!options?.silent) console.timeEnd("[fetch] contacts count query")
+      const totalContacts = contactsCountResult.count ?? 0
+      const totalPages = Math.ceil(totalContacts / PAGE_SIZE)
+      if (!options?.silent) {
+        console.log(`[fetch] ${totalContacts} contacts, ${totalPages} pages of ${PAGE_SIZE}`)
+      }
 
-      const fetchAllContacts = async (): Promise<Record<string, unknown>[]> => {
-        const all: Record<string, unknown>[] = []
-        let from = 0
-        let pageNum = 0
-        while (true) {
-          pageNum += 1
-          const { data, error } = await supabase
+      setDbContactCount(totalContacts)
+      setLoadingProgress({ loaded: 0, total: totalContacts })
+
+      const fetchContactsParallel = async (): Promise<Record<string, unknown>[]> => {
+        if (totalPages === 0) return []
+        if (!options?.silent) console.time("[fetch] contacts pages (parallel)")
+        const pagePromises = Array.from({ length: totalPages }, (_, i) =>
+          supabase
             .from("contacts")
             .select("*")
-            .range(from, from + PAGE_SIZE - 1)
+            .range(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1),
+        )
+        const results = await Promise.all(pagePromises)
+        if (!options?.silent) console.timeEnd("[fetch] contacts pages (parallel)")
+        const all: Record<string, unknown>[] = []
+        let firstBatchApplied = false
+        for (const { data, error } of results) {
           if (error) throw error
-          if (!data || data.length === 0) break
+          if (!data || data.length === 0) continue
           all.push(...(data as Record<string, unknown>[]))
           const mappedBatch = data.map(
             (r) => toCamel(r, CONTACT_FIELDS) as unknown as ContactRecord,
           )
-          if (pageNum === 1) {
+          if (!firstBatchApplied) {
             setContactRecords(mappedBatch)
+            firstBatchApplied = true
           } else {
             setContactRecords((prev) => [...prev, ...mappedBatch])
           }
-          setLoadingProgress({ loaded: all.length, total: null })
-          if (data.length < PAGE_SIZE) break
-          from += PAGE_SIZE
         }
-        if (!options?.silent) {
-          console.log(`[fetch] contacts: ${pageNum} page(s), ${all.length} rows`)
-        }
+        setLoadingProgress({ loaded: all.length, total: totalContacts })
         return all
       }
 
@@ -182,13 +174,11 @@ export function useDataLoader(session: unknown): DataLoaderState {
 
       if (!options?.silent) console.time("[fetch] all queries (Promise.all)")
       const [contactsAll, phonesAll, phonesCountResult] = await Promise.all([
-        fetchAllContacts(),
+        fetchContactsParallel(),
         fetchAllPhones(),
         supabase.from("phone_records").select("*", { count: "exact", head: true }),
       ])
       if (!options?.silent) console.timeEnd("[fetch] all queries (Promise.all)")
-
-      contactsCountPromise.catch(() => {})
 
       if (typeof phonesCountResult.count === "number") {
         setDbPhoneCount(phonesCountResult.count)
