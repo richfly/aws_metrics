@@ -9,6 +9,7 @@ import {
   IconDatabase,
   IconCalendar,
   IconExclamationCircle,
+  IconUser,
   IconClock,
   IconHourglass,
   IconCloud,
@@ -113,6 +114,34 @@ const pages = [
     icon: IconPhone,
     title: "Phone Analysis",
     body: "Breaks down average Agent Connect Time, Handle Time, and ACW Time by phone description. Useful for identifying which phone lines perform best or worst.",
+  },
+  {
+    icon: IconUser,
+    title: "Agent",
+    body: (
+      <>
+        <Text size="sm">Per-agent performance for managers and team leads:</Text>
+        <Text size="sm" component="ul" mt={4}>
+          <li>
+            <b>Summary cards</b> — active agents, total contacts, team avg connect
+            time, team SLA ≤60s
+          </li>
+          <li>
+            <b>Sortable table</b> — every agent with contacts handled, avg connect / handle /
+            ACW times, SLA ≤20s / 60s / 120s, queue time SLA, and queues covered. Click any
+            column header to re-sort. Color-coded against team averages and SLA targets.
+          </li>
+          <li>
+            <b>Click any agent</b> to open a detail modal with their daily volume chart,
+            shift performance breakdown, and top queues
+          </li>
+          <li>
+            <b>Top 10 by volume</b> — horizontal bar chart at the bottom for at-a-glance
+            workload distribution
+          </li>
+        </Text>
+      </>
+    ),
   },
   {
     icon: IconChartLine,

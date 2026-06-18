@@ -228,19 +228,17 @@ export function SlaInclusiveAnalysis({ records }: SlaInclusiveAnalysisProps) {
                             </Text>
                           </Table.Td>
                           <Table.Td ta="right">
-                            <Text c="dimmed" size="sm">
-                              {row.inc >= row.std ? (
-                                <Group gap={4} justify="flex-end" wrap="nowrap">
-                                  <IconCheck size={14} color="var(--mantine-color-teal-5)" />
-                                  <span>at/above</span>
-                                </Group>
-                              ) : (
-                                <Group gap={4} justify="flex-end" wrap="nowrap">
-                                  <IconX size={14} color="var(--mantine-color-red-5)" />
-                                  <span>below</span>
-                                </Group>
-                              )}
-                            </Text>
+                            {row.inc >= row.std ? (
+                              <Group gap={4} justify="flex-end" wrap="nowrap">
+                                <IconCheck size={14} color="var(--mantine-color-teal-5)" />
+                                <Text c="dimmed" size="sm">at/above</Text>
+                              </Group>
+                            ) : (
+                              <Group gap={4} justify="flex-end" wrap="nowrap">
+                                <IconX size={14} color="var(--mantine-color-red-5)" />
+                                <Text c="dimmed" size="sm">below</Text>
+                              </Group>
+                            )}
                           </Table.Td>
                         </Table.Tr>
                       )

@@ -35,6 +35,7 @@ import {
   IconExclamationCircle,
   IconLogout,
   IconHourglass,
+  IconUser,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { ContactRecord } from "./types";
@@ -44,6 +45,7 @@ import { PhoneDescriptionBreakdown } from "./components/PhoneDescriptionBreakdow
 import { SlaAnalysis } from "./components/SlaAnalysis";
 import { SlaInclusiveAnalysis } from "./components/SlaInclusiveAnalysis";
 import { AbandonmentAnalysis } from "./components/AbandonmentAnalysis";
+import { AgentPerformance } from "./components/AgentPerformance";
 import { DashboardOverview } from "./components/DashboardOverview";
 import { WbrPage } from "./components/WbrPage";
 import { DocumentationPage } from "./components/DocumentationPage";
@@ -61,6 +63,7 @@ import "./index.css";
 const NAV_LINKS = [
   { id: "dashboard" as const, label: "Dashboard", icon: IconChartBar },
   { id: "wbr" as const, label: "WBR", icon: IconCalendar },
+  { id: "agent" as const, label: "Agent", icon: IconUser },
   { id: "phone-analysis" as const, label: "Phone Analysis", icon: IconPhone },
   { id: "sla" as const, label: "SLA", icon: IconChartLine },
   { id: "sla-inclusive" as const, label: "SLA (inclusive)", icon: IconHourglass },
@@ -453,6 +456,13 @@ export default function App() {
                     filteredRecords={filters.filteredRecords.length}
                     filterLabel={filters.filterLabel}
                   />
+                ))}
+
+              {activePage === "agent" &&
+                (data.contactRecords.length === 0 && data.supabaseLoading ? (
+                  <ContentSkeleton />
+                ) : (
+                  <AgentPerformance records={filters.filteredRecords} />
                 ))}
 
               {activePage === "sla" &&

@@ -87,6 +87,120 @@ function computeStats(values: number[]): MetricStats | null {
   return { avg, min, max, median, count: values.length }
 }
 
+export interface AgentMetricsRow {
+  agent: string
+  total: number
+  avgConnectSec: number
+  avgHandleMin: number
+  avgAcwMin: number
+  avgInteractionMin: number
+  pct20s: number
+  pct60s: number
+  pct120s: number
+  qPct60s: number
+  avgHolds: number
+  queueCount: number
+  queues: string[]
+}
+
+export function calculateAgentMetrics(
+  records: ContactRecord[],
+): AgentMetricsRow[] {
+  const groups = new Map<string, {
+    connectSecs: number[]
+    handleMins: number[]
+    acwMins: number[]
+    interactionMins: number[]
+    below20s: number
+    below60s: number
+    below120s: number
+    qBelow60s: number
+    qWith: number
+    total: number
+    holds: number[]
+    queues: Set<string>
+  }>()
+
+  for (const r of records) {
+    const agent = r.agent?.trim()
+    if (!agent) continue
+
+    let g = groups.get(agent)
+    if (!g) {
+      g = {
+        connectSecs: [],
+        handleMins: [],
+        acwMins: [],
+        interactionMins: [],
+        below20s: 0,
+        below60s: 0,
+        below120s: 0,
+        qBelow60s: 0,
+        qWith: 0,
+        total: 0,
+        holds: [],
+        queues: new Set(),
+      }
+      groups.set(agent, g)
+    }
+
+    g.total++
+    if (r.queue) g.queues.add(r.queue)
+
+    const connectSec = secondsDiff(r.initiationTimestamp, r.connectedToAgentTimestamp)
+    if (connectSec !== null) {
+      g.connectSecs.push(connectSec)
+      if (connectSec <= 120) g.below120s++
+      if (connectSec <= 60) g.below60s++
+      if (connectSec <= 20) g.below20s++
+    }
+
+    const handleMin = minutesDiff(r.initiationTimestamp, r.disconnectTimestamp)
+    if (handleMin !== null) g.handleMins.push(handleMin)
+
+    const acwMin = minutesDiff(r.acwStartTimestamp, r.acwEndTimestamp)
+    if (acwMin !== null) g.acwMins.push(acwMin)
+
+    const interactionMin = minutesDiff(r.connectedToAgentTimestamp, r.disconnectTimestamp)
+    if (interactionMin !== null) g.interactionMins.push(interactionMin)
+
+    const qSec = r.connectedToAgentTimestamp
+      ? secondsDiff(r.enqueueTimestamp, r.connectedToAgentTimestamp)
+      : null
+    if (qSec !== null) {
+      g.qWith++
+      if (qSec <= 60) g.qBelow60s++
+    }
+
+    const holds = parseInt(r.numberOfHolds, 10)
+    if (!isNaN(holds)) g.holds.push(holds)
+  }
+
+  const result: AgentMetricsRow[] = []
+  for (const [agent, g] of groups) {
+    const avg = (arr: number[]) =>
+      arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
+    result.push({
+      agent,
+      total: g.total,
+      avgConnectSec: avg(g.connectSecs),
+      avgHandleMin: avg(g.handleMins),
+      avgAcwMin: avg(g.acwMins),
+      avgInteractionMin: avg(g.interactionMins),
+      pct20s: g.total > 0 ? (g.below20s / g.total) * 100 : 0,
+      pct60s: g.total > 0 ? (g.below60s / g.total) * 100 : 0,
+      pct120s: g.total > 0 ? (g.below120s / g.total) * 100 : 0,
+      qPct60s: g.qWith > 0 ? (g.qBelow60s / g.qWith) * 100 : 0,
+      avgHolds: avg(g.holds),
+      queueCount: g.queues.size,
+      queues: Array.from(g.queues).sort(),
+    })
+  }
+
+  result.sort((a, b) => b.total - a.total)
+  return result
+}
+
 export function calculateMetrics(records: ContactRecord[]): DetailedMetrics {
   const connectTimes: number[] = []
   const acwTimes: number[] = []
