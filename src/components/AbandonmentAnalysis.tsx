@@ -1,32 +1,24 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { Paper, Text, Group, SimpleGrid, Stack, Table, ScrollArea } from '@mantine/core'
 import { motion } from 'framer-motion'
 import {
   BarChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
   Legend,
   ResponsiveContainer,
+  ComposedChart,
 } from 'recharts'
 import { ContactRecord } from '../types'
+import { parseDate, getShift } from '../utils/metricsCalculator'
+import { ChartExportButton } from './ChartExportButton'
 
 interface AbandonmentAnalysisProps {
   records: ContactRecord[]
-}
-
-function getShift(hour: number): string {
-  if (hour >= 6 && hour < 14) return "1st"
-  if (hour >= 14 && hour < 22) return "2nd"
-  return "3rd"
-}
-
-function parseDate(str: string): Date | null {
-  if (!str || str.trim() === '') return null
-  const d = new Date(str)
-  return isNaN(d.getTime()) ? null : d
 }
 
 function formatDate(str: string): string {
@@ -37,6 +29,10 @@ function formatDate(str: string): string {
 }
 
 export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
+  const queueChartRef = useRef<HTMLDivElement>(null)
+  const reasonChartRef = useRef<HTMLDivElement>(null)
+  const shiftChartRef = useRef<HTMLDivElement>(null)
+  const dailyChartRef = useRef<HTMLDivElement>(null)
   const total = records.length
   const abandoned = useMemo(() => records.filter(r => !r.connectedToAgentTimestamp), [records])
   const abandonedCount = abandoned.length
@@ -127,6 +123,16 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
 
   const chartHeight = Math.min(Math.max(queueData.length * 32, 180), 360)
 
+  if (records.length === 0) {
+    return (
+      <Paper shadow="sm" radius="md" p="xl" className="glass-panel">
+        <Text c="dimmed" ta="center" py="xl">
+          No data available. Click "Load Data" in the header to upload contact records.
+        </Text>
+      </Paper>
+    )
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -156,67 +162,88 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
 
         <SimpleGrid cols={{ base: 1, sm: 2 }} mb="md">
           <Paper p="md" radius="md" withBorder>
-            <Text fw={600} size="sm" mb="xs">Abandoned by Queue</Text>
+            <Group justify="space-between" mb="xs">
+              <Text fw={600} size="sm">Abandoned by Queue</Text>
+              <ChartExportButton targetRef={queueChartRef} filename="abandoned-by-queue" />
+            </Group>
             <Text size="xs" c="dimmed" mb="md">Top queues by abandonment count</Text>
-            <ResponsiveContainer width="100%" height={chartHeight}>
-              <BarChart data={queueData} layout="vertical" margin={{ left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="queue" tick={{ fontSize: 11 }} width={160} />
-                <RechartsTooltip
-                  formatter={(value: any, name: any) => [value, name === "abandoned" ? "Abandoned" : value]}
-                />
-                <Bar dataKey="abandoned" fill="var(--mantine-color-red-5)" radius={[0, 4, 4, 0]} name="Abandoned" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div ref={queueChartRef}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
+                <BarChart data={queueData} layout="vertical" margin={{ left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                  <XAxis type="number" tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="queue" tick={{ fontSize: 11 }} width={160} />
+                  <RechartsTooltip
+                    cursor={{ fill: "var(--mantine-color-red-0)", opacity: 0.4 }}
+                    formatter={(value: any, name: any) => [value, name === "abandoned" ? "Abandoned" : name]}
+                  />
+                  <Bar dataKey="abandoned" fill="var(--mantine-color-red-5)" radius={[0, 4, 4, 0]} name="Abandoned" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </Paper>
 
           <Paper p="md" radius="md" withBorder>
-            <Text fw={600} size="sm" mb="xs">By Disconnect Reason</Text>
+            <Group justify="space-between" mb="xs">
+              <Text fw={600} size="sm">By Disconnect Reason</Text>
+              <ChartExportButton targetRef={reasonChartRef} filename="by-disconnect-reason" />
+            </Group>
             <Text size="xs" c="dimmed" mb="md">Why abandoned contacts ended</Text>
-            <ResponsiveContainer width="100%" height={chartHeight}>
-              <BarChart data={reasonData} layout="vertical" margin={{ left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="reason" tick={{ fontSize: 11 }} width={140} />
-                <RechartsTooltip />
-                <Bar dataKey="count" fill="var(--mantine-color-orange-5)" radius={[0, 4, 4, 0]} name="Contacts" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div ref={reasonChartRef}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
+                <BarChart data={reasonData} layout="vertical" margin={{ left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                  <XAxis type="number" tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="reason" tick={{ fontSize: 11 }} width={140} />
+                  <RechartsTooltip cursor={{ fill: "var(--mantine-color-orange-0)", opacity: 0.4 }} />
+                  <Bar dataKey="count" fill="var(--mantine-color-orange-5)" radius={[0, 4, 4, 0]} name="Contacts" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </Paper>
         </SimpleGrid>
 
         <SimpleGrid cols={{ base: 1, sm: 2 }} mb="md">
           <Paper p="md" radius="md" withBorder>
-            <Text fw={600} size="sm" mb="xs">By Shift</Text>
+            <Group justify="space-between" mb="xs">
+              <Text fw={600} size="sm">By Shift</Text>
+              <ChartExportButton targetRef={shiftChartRef} filename="by-shift" />
+            </Group>
             <Text size="xs" c="dimmed" mb="md">Answered vs abandoned by shift</Text>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={shiftChartData} margin={{ left: -8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
-                <XAxis dataKey="shift" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <RechartsTooltip />
-                <Legend />
-                <Bar dataKey="Answered" fill="var(--mantine-color-teal-5)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                <Bar dataKey="Abandoned" fill="var(--mantine-color-red-5)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div ref={shiftChartRef}>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={shiftChartData} margin={{ left: -8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                  <XAxis dataKey="shift" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <RechartsTooltip cursor={{ fill: "var(--mantine-color-gray-1)", opacity: 0.4 }} />
+                  <Legend />
+                  <Bar dataKey="Answered" fill="var(--mantine-color-teal-5)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="Abandoned" fill="var(--mantine-color-red-5)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </Paper>
 
           <Paper p="md" radius="md" withBorder>
-            <Text fw={600} size="sm" mb="xs">Daily Trend</Text>
+            <Group justify="space-between" mb="xs">
+              <Text fw={600} size="sm">Daily Trend</Text>
+              <ChartExportButton targetRef={dailyChartRef} filename="daily-trend" />
+            </Group>
             <Text size="xs" c="dimmed" mb="md">Answered vs abandoned by day</Text>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={dailyChartData} margin={{ left: -8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <RechartsTooltip />
-                <Legend />
-                <Bar dataKey="Answered" fill="var(--mantine-color-teal-5)" radius={[4, 4, 0, 0]} maxBarSize={24} stackId="a" />
-                <Bar dataKey="Abandoned" fill="var(--mantine-color-red-5)" radius={[4, 4, 0, 0]} maxBarSize={24} stackId="a" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div ref={dailyChartRef}>
+              <ResponsiveContainer width="100%" height={200}>
+                <ComposedChart data={dailyChartData} margin={{ left: -8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <RechartsTooltip cursor={{ fill: "var(--mantine-color-gray-1)", opacity: 0.4 }} />
+                  <Legend />
+                  <Bar dataKey="Answered" stackId="a" fill="var(--mantine-color-teal-5)" radius={[4, 4, 0, 0]} maxBarSize={24} />
+                  <Bar dataKey="Abandoned" stackId="a" fill="var(--mantine-color-red-5)" radius={[4, 4, 0, 0]} maxBarSize={24} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           </Paper>
         </SimpleGrid>
 

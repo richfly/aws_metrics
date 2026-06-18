@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import { Paper, Text, Group, Tooltip, SegmentedControl, SimpleGrid, Stack, Table, Alert } from '@mantine/core'
 import { IconInfoCircle, IconAlertCircle, IconCheck, IconX } from '@tabler/icons-react'
 import { motion } from 'framer-motion'
@@ -20,107 +20,21 @@ import {
   calculateInclusiveSlaByShift,
   calculateSlaComparison,
 } from '../utils/metricsCalculator'
+import { ChartExportButton } from './ChartExportButton'
+import {
+  SHIFT_COLORS,
+  SHIFT_LABELS,
+  SHIFTS,
+  formatDateLabel,
+  labelFormatter,
+  buildChartData,
+} from '../utils/slaChartUtils'
 
 interface SlaInclusiveAnalysisProps {
   records: ContactRecord[]
 }
 
-const SHIFT_COLORS: Record<string, string> = {
-  "1st": "var(--mantine-color-blue-5)",
-  "2nd": "var(--mantine-color-teal-5)",
-  "3rd": "var(--mantine-color-violet-5)",
-}
-
-const SHIFT_LABELS: Record<string, string> = {
-  "1st": "1st (6:00–13:59)",
-  "2nd": "2nd (14:00–21:59)",
-  "3rd": "3rd (22:00–5:59)",
-}
-
 type SlaField = "pct20s" | "pct60s" | "pct120s"
-
-interface WeeklyInclusiveRow {
-  date: string
-  weekStart: string
-  shift: string
-  total: number
-  below20s: number
-  below60s: number
-  below120s: number
-  pct20s: number
-  pct60s: number
-  pct120s: number
-}
-
-function aggregateByWeek(rows: ReturnType<typeof calculateInclusiveDailySla>): WeeklyInclusiveRow[] {
-  const map = new Map<string, {
-    weekStart: string
-    shift: string
-    total: number
-    below20s: number
-    below60s: number
-    below120s: number
-  }>()
-
-  for (const r of rows) {
-    const key = `${r.weekStart}|${r.shift}`
-    let g = map.get(key)
-    if (!g) {
-      g = { weekStart: r.weekStart, shift: r.shift, total: 0, below20s: 0, below60s: 0, below120s: 0 }
-      map.set(key, g)
-    }
-    g.total += r.total
-    g.below20s += r.below20s
-    g.below60s += r.below60s
-    g.below120s += r.below120s
-  }
-
-  return [...map.values()]
-    .map((g) => ({
-      date: g.weekStart,
-      weekStart: g.weekStart,
-      shift: g.shift,
-      total: g.total,
-      below20s: g.below20s,
-      below60s: g.below60s,
-      below120s: g.below120s,
-      pct20s: (g.below20s / g.total) * 100,
-      pct60s: (g.below60s / g.total) * 100,
-      pct120s: (g.below120s / g.total) * 100,
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date))
-}
-
-function getFieldValue(row: { [k in SlaField]: number }, field: SlaField): number {
-  return row[field]
-}
-
-function buildChartData(
-  rows: ReturnType<typeof calculateInclusiveDailySla>,
-  field: SlaField,
-  groupByWeek: boolean,
-) {
-  const grouped = groupByWeek ? aggregateByWeek(rows) : rows
-  const dates = [...new Set(grouped.map((r: any) => r.date))].sort()
-  return dates.map((date) => {
-    const row: Record<string, number | string> = { date }
-    for (const s of ["1st", "2nd", "3rd"]) {
-      const found = grouped.find((r: any) => r.date === date && r.shift === s)
-      row[s] = found ? Math.round(getFieldValue(found, field) * 10) / 10 : 0
-    }
-    return row
-  })
-}
-
-function formatDateLabel(dateStr: string) {
-  const parts = dateStr.split("-")
-  return `${parts[1]}/${parts[2]}`
-}
-
-function labelFormatter(label: any) {
-  const parts = label.split("-")
-  return `${parts[1]}/${parts[2]}/${parts[0]}`
-}
 
 const connectSpecs = [
   { key: "pct20s" as SlaField, title: "≤ 20 seconds", subtitle: "% of contacts (including abandoners) ending within 20s" },
@@ -130,6 +44,7 @@ const connectSpecs = [
 
 export function SlaInclusiveAnalysis({ records }: SlaInclusiveAnalysisProps) {
   const [groupByWeek, setGroupByWeek] = useState(false)
+  const inclusiveChartRef = useRef<HTMLDivElement>(null)
   const slaRows = useMemo(() => calculateInclusiveDailySla(records), [records])
   const overall = useMemo(() => calculateInclusiveOverallSla(records), [records])
   const comparison = useMemo(() => calculateSlaComparison(records), [records])
@@ -369,49 +284,55 @@ export function SlaInclusiveAnalysis({ records }: SlaInclusiveAnalysisProps) {
               )}
 
               <Paper p="md" radius="md" withBorder>
-                <Text fw={600} size="sm" mb="xs">Agent Connect / Abandon Time SLA (Inclusive)</Text>
+                <Group justify="space-between" mb="xs">
+                  <Text fw={600} size="sm">Agent Connect / Abandon Time SLA (Inclusive)</Text>
+                  <ChartExportButton targetRef={inclusiveChartRef} filename="inclusive-sla" />
+                </Group>
                 <Text size="xs" c="dimmed" mb="md">
                   Connected contacts: initiation → connected. Abandoned contacts: initiation → disconnect.
                 </Text>
-                <Stack gap="xl">
-                  {chartData.map((spec) => (
-                    <div key={spec.key}>
-                      <Text fw={500} size="xs" mb={4}>{spec.title}</Text>
-                      <Text size="xs" c="dimmed" mb="xs">{spec.subtitle}</Text>
-                      <ResponsiveContainer width="100%" height={240}>
-                        <BarChart data={spec.chartData} margin={{ left: -8 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
-                          <XAxis
-                            dataKey="date"
-                            tick={{ fontSize: 11 }}
-                            tickFormatter={(v: any) => formatDateLabel(String(v))}
-                          />
-                          <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
-                          <RechartsTooltip
-                            formatter={(value: any) => [`${Number(value).toFixed(1)}%`]}
-                            labelFormatter={labelFormatter}
-                          />
-                          <ReferenceLine y={90} stroke="var(--mantine-color-red-6)" strokeDasharray="6 3" label={{ value: "90%", position: "right", fontSize: 11 }} />
-                          <Legend
-                            formatter={(value: string) => (
-                              <span style={{ fontSize: 12 }}>{SHIFT_LABELS[value] || value}</span>
-                            )}
-                          />
-                          {["1st", "2nd", "3rd"].map((shift) => (
-                            <Bar
-                              key={shift}
-                              dataKey={shift}
-                              name={shift}
-                              fill={SHIFT_COLORS[shift]}
-                              radius={[4, 4, 0, 0]}
-                              maxBarSize={24}
+                <div ref={inclusiveChartRef}>
+                  <Stack gap="xl">
+                    {chartData.map((spec) => (
+                      <div key={spec.key}>
+                        <Text fw={500} size="xs" mb={4}>{spec.title}</Text>
+                        <Text size="xs" c="dimmed" mb="xs">{spec.subtitle}</Text>
+                        <ResponsiveContainer width="100%" height={240}>
+                          <BarChart data={spec.chartData} margin={{ left: -8 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                            <XAxis
+                              dataKey="date"
+                              tick={{ fontSize: 11 }}
+                              tickFormatter={(v: any) => formatDateLabel(String(v))}
                             />
-                          ))}
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ))}
-                </Stack>
+                            <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
+                            <RechartsTooltip
+                              cursor={{ fill: "var(--mantine-color-teal-0)", opacity: 0.4 }}
+                              formatter={(value: any) => [`${Number(value).toFixed(1)}%`]}
+                              labelFormatter={labelFormatter}
+                            />
+                            <ReferenceLine y={90} stroke="var(--mantine-color-red-6)" strokeDasharray="6 3" label={{ value: "90%", position: "right", fontSize: 11 }} />
+                            <Legend
+                              formatter={(value: string) => (
+                                <span style={{ fontSize: 12 }}>{SHIFT_LABELS[value] || value}</span>
+                              )}
+                            />
+                            {SHIFTS.map((shift) => (
+                              <Bar
+                                key={shift}
+                                dataKey={shift}
+                                name={shift}
+                                fill={SHIFT_COLORS[shift]}
+                                radius={[4, 4, 0, 0]}
+                                maxBarSize={24}
+                              />
+                            ))}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ))}
+                  </Stack>
+                </div>
               </Paper>
             </Stack>
           </Paper>

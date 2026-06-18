@@ -1,19 +1,22 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { Paper, Text, Group, SimpleGrid, Stack, Tooltip } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
 import { motion } from 'framer-motion'
 import {
   BarChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
   ReferenceLine,
+  ComposedChart,
 } from 'recharts'
 import { ContactRecord } from '../types'
 import { calculateOverallSla, calculateDailySla, parseDate } from '../utils/metricsCalculator'
+import { ChartExportButton } from './ChartExportButton'
 
 interface DashboardOverviewProps {
   records: ContactRecord[]
@@ -24,7 +27,29 @@ function formatDate(str: string): string {
   return `${parts[1]}/${parts[2]}`
 }
 
+function computeRollingAvg(data: { date: string; value: number }[], window = 7): { date: string; value: number; trend: number | null }[] {
+  return data.map((d, i) => {
+    const start = Math.max(0, i - window + 1)
+    const slice = data.slice(start, i + 1)
+    const avg = slice.reduce((s, x) => s + x.value, 0) / slice.length
+    return { date: d.date, value: d.value, trend: i >= window - 1 ? Math.round(avg * 10) / 10 : null }
+  })
+}
+
 export function DashboardOverview({ records }: DashboardOverviewProps) {
+  const volumeChartRef = useRef<HTMLDivElement>(null)
+  const slaChartRef = useRef<HTMLDivElement>(null)
+
+  if (records.length === 0) {
+    return (
+      <Paper shadow="sm" radius="md" p="xl" className="glass-panel">
+        <Text c="dimmed" ta="center" py="xl">
+          No data available. Click "Load Data" in the header to upload contact records.
+        </Text>
+      </Paper>
+    )
+  }
+
   const total = records.length
 
   const overallSla = useMemo(() => calculateOverallSla(records), [records])
@@ -63,7 +88,7 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
       .sort((a, b) => a.date.localeCompare(b.date))
   }, [records])
 
-  const slaDailyData = useMemo(() => {
+  const slaDailyRaw = useMemo(() => {
     const rows = calculateDailySla(records)
     const map = new Map<string, { total: number; met: number }>()
     for (const r of rows) {
@@ -79,6 +104,33 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
       }))
       .sort((a, b) => a.date.localeCompare(b.date))
   }, [records])
+
+  const slaDailyData = useMemo(
+    () => computeRollingAvg(slaDailyRaw.map(d => ({ date: d.date, value: d.pct })), 7),
+    [slaDailyRaw],
+  )
+
+  const slaDelta = useMemo(() => {
+    const len = slaDailyRaw.length
+    if (len < 14) return null
+    const recent = slaDailyRaw.slice(-7)
+    const prior = slaDailyRaw.slice(-14, -7)
+    const recentAvg = recent.reduce((s, d) => s + d.pct, 0) / recent.length
+    const priorAvg = prior.reduce((s, d) => s + d.pct, 0) / prior.length
+    const delta = recentAvg - priorAvg
+    return { recentAvg, priorAvg, delta }
+  }, [slaDailyRaw])
+
+  const volumeDelta = useMemo(() => {
+    const len = dailyVolume.length
+    if (len < 14) return null
+    const recent = dailyVolume.slice(-7)
+    const prior = dailyVolume.slice(-14, -7)
+    const recentAvg = recent.reduce((s, d) => s + d.count, 0) / recent.length
+    const priorAvg = prior.reduce((s, d) => s + d.count, 0) / prior.length
+    const delta = recentAvg - priorAvg
+    return { recentAvg, priorAvg, delta }
+  }, [dailyVolume])
 
   return (
     <motion.div
@@ -96,7 +148,9 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
               <Text fw={700} size="xl">
                 {overallSla.total.toLocaleString()}
               </Text>
-              <Text size="xs" c="dimmed">Handled</Text>
+              <Text size="xs" c="dimmed">
+                Handled{volumeDelta ? ` · ${volumeDelta.delta >= 0 ? "↑" : "↓"} ${Math.abs(volumeDelta.delta).toFixed(0)}/day vs prior week` : ""}
+              </Text>
             </Paper>
 
             <Paper p="md" radius="md" className="glass-panel" ta="center">
@@ -107,7 +161,13 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
                 {slaRate.toFixed(1)}%
               </Text>
               <Text size="xs" c="dimmed">
-                {slaRate >= 90 ? "At target" : slaRate >= 80 ? "Near target" : "Below target"}
+                {slaDelta
+                  ? `${slaDelta.delta >= 0 ? "↑" : "↓"} ${Math.abs(slaDelta.delta).toFixed(1)} pts vs prior week`
+                  : slaRate >= 90
+                  ? "At target"
+                  : slaRate >= 80
+                  ? "Near target"
+                  : "Below target"}
               </Text>
             </Paper>
 
@@ -136,42 +196,62 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
 
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
             <Paper p="md" radius="md" withBorder>
-              <Group gap="xs" mb="xs">
-                <Text fw={600} size="sm">Contact Volume</Text>
-                <Tooltip label="All contacts per day including abandoned" multiline w={200} withArrow>
-                  <IconInfoCircle size={14} style={{ opacity: 0.4, cursor: "help" }} />
-                </Tooltip>
+              <Group justify="space-between" mb="xs">
+                <Group gap="xs">
+                  <Text fw={600} size="sm">Contact Volume</Text>
+                  <Tooltip label="All contacts per day including abandoned" multiline w={200} withArrow>
+                    <IconInfoCircle size={14} style={{ opacity: 0.4, cursor: "help" }} />
+                  </Tooltip>
+                </Group>
+                <ChartExportButton targetRef={volumeChartRef} filename="contact-volume" />
               </Group>
               <Text size="xs" c="dimmed" mb="md">Daily contact volume</Text>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={dailyVolume} margin={{ left: -8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <RechartsTooltip formatter={(value: any) => [Number(value).toLocaleString(), "Contacts"]} />
-                  <Bar dataKey="count" fill="var(--mantine-color-blue-5)" radius={[4, 4, 0, 0]} maxBarSize={32} name="Contacts" />
-                </BarChart>
-              </ResponsiveContainer>
+              <div ref={volumeChartRef}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={dailyVolume} margin={{ left: -8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <RechartsTooltip
+                      cursor={{ fill: "var(--mantine-color-blue-0)", opacity: 0.4 }}
+                      formatter={(value: any) => [Number(value).toLocaleString(), "Contacts"]}
+                    />
+                    <Bar dataKey="count" fill="var(--mantine-color-blue-5)" radius={[4, 4, 0, 0]} maxBarSize={32} name="Contacts" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </Paper>
 
             <Paper p="md" radius="md" withBorder>
-              <Group gap="xs" mb="xs">
-                <Text fw={600} size="sm">Service Level Trend</Text>
-                <Tooltip label="% of contacts answered within 60 seconds per day" multiline w={220} withArrow>
-                  <IconInfoCircle size={14} style={{ opacity: 0.4, cursor: "help" }} />
-                </Tooltip>
+              <Group justify="space-between" mb="xs">
+                <Group gap="xs">
+                  <Text fw={600} size="sm">Service Level Trend</Text>
+                  <Tooltip label="% of contacts answered within 60 seconds per day, with 7-day rolling average" multiline w={240} withArrow>
+                    <IconInfoCircle size={14} style={{ opacity: 0.4, cursor: "help" }} />
+                  </Tooltip>
+                </Group>
+                <ChartExportButton targetRef={slaChartRef} filename="service-level-trend" />
               </Group>
-              <Text size="xs" c="dimmed" mb="md">≤60s attainment with 90% target</Text>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={slaDailyData} margin={{ left: -8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
-                  <RechartsTooltip formatter={(value: any) => [`${Number(value).toFixed(1)}%`, "≤60s"]} />
-                  <ReferenceLine y={90} stroke="var(--mantine-color-red-6)" strokeDasharray="6 3" label={{ value: "90%", position: "right", fontSize: 11 }} />
-                  <Bar dataKey="pct" fill="var(--mantine-color-teal-5)" radius={[4, 4, 0, 0]} maxBarSize={32} name="≤60s" />
-                </BarChart>
-              </ResponsiveContainer>
+              <Text size="xs" c="dimmed" mb="md">≤60s daily with 7-day rolling average</Text>
+              <div ref={slaChartRef}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <ComposedChart data={slaDailyData} margin={{ left: -8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-3)" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
+                    <RechartsTooltip
+                      cursor={{ strokeDasharray: "3 3", stroke: "var(--mantine-color-gray-5)" }}
+                      formatter={(value: any, name: any) => [
+                        `${Number(value).toFixed(1)}%`,
+                        name === "pct" ? "≤60s" : "7-day avg",
+                      ]}
+                    />
+                    <ReferenceLine y={90} stroke="var(--mantine-color-red-6)" strokeDasharray="6 3" label={{ value: "90%", position: "right", fontSize: 11 }} />
+                    <Bar dataKey="pct" fill="var(--mantine-color-teal-5)" radius={[4, 4, 0, 0]} maxBarSize={32} name="≤60s" />
+                    <Line type="monotone" dataKey="trend" stroke="var(--mantine-color-yellow-5)" strokeWidth={2} dot={false} name="7-day avg" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
             </Paper>
           </SimpleGrid>
         </Stack>

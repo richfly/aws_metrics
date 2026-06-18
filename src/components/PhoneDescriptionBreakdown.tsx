@@ -24,7 +24,25 @@ export function PhoneDescriptionBreakdown({
 
   const isFiltered = filteredRecords < totalRecords
 
-  if (groups.length === 0) return null
+  if (totalRecords === 0) {
+    return (
+      <Paper shadow="sm" radius="md" p="xl" className="glass-panel">
+        <Text c="dimmed" ta="center" py="xl">
+          No data available. Click "Load Data" in the header to upload contact records.
+        </Text>
+      </Paper>
+    )
+  }
+
+  if (groups.length === 0) {
+    return (
+      <Paper shadow="sm" radius="md" p="xl" className="glass-panel">
+        <Text c="dimmed" ta="center" py="xl">
+          No contacts have a phone description. Upload the Phone Numbers CSV to enrich records.
+        </Text>
+      </Paper>
+    )
+  }
 
   return (
     <motion.div

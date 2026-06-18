@@ -18,7 +18,7 @@ import {
   Center,
   SegmentedControl,
 } from "@mantine/core";
-import { DatePickerInput } from "@mantine/dates";
+import { DatePickerPopover, type DatePreset } from "./components/DatePickerPopover";
 import { useMantineColorScheme } from "@mantine/core";
 import {
   IconAlertCircle,
@@ -37,10 +37,8 @@ import {
   IconHourglass,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
-import { ContactRecord, PhoneRecord } from "./types";
-import { parseContactCsv, parsePhoneCsv } from "./utils/csvParser";
-import { joinData } from "./utils/dataJoiner";
-import { calculateMetrics, parseDate } from "./utils/metricsCalculator";
+import { ContactRecord } from "./types";
+import { calculateMetrics } from "./utils/metricsCalculator";
 import { DataLoaderModal } from "./components/DataLoaderModal";
 import { PhoneDescriptionBreakdown } from "./components/PhoneDescriptionBreakdown";
 import { SlaAnalysis } from "./components/SlaAnalysis";
@@ -49,532 +47,127 @@ import { AbandonmentAnalysis } from "./components/AbandonmentAnalysis";
 import { DashboardOverview } from "./components/DashboardOverview";
 import { WbrPage } from "./components/WbrPage";
 import { DocumentationPage } from "./components/DocumentationPage";
+import { ContentSkeleton } from "./components/ContentSkeleton";
 import { LoginPage } from "./components/LoginPage";
 import { useAuth } from "./contexts/AuthContext";
-import { supabase } from "./lib/supabase";
-import { notifications } from "@mantine/notifications";
+import { useDataLoader } from "./hooks/useDataLoader";
+import { useFilters } from "./hooks/useFilters";
+import { useTimeLabel } from "./hooks/useTimeLabel";
+import { useFilterOptions } from "./hooks/useFilterOptions";
+import { useDatePresets } from "./hooks/useDatePresets";
+import { useUploader } from "./hooks/useUploader";
 import "./index.css";
 
-const CONTACT_FIELDS: [keyof ContactRecord, string][] = [
-  ["contactId", "contact_id"],
-  ["channel", "channel"],
-  ["contactStatus", "contact_status"],
-  ["initiationTimestamp", "initiation_timestamp"],
-  ["systemPhoneNumber", "system_phone_number"],
-  ["queue", "queue"],
-  ["agent", "agent"],
-  ["customerPhoneNumber", "customer_phone_number"],
-  ["disconnectTimestamp", "disconnect_timestamp"],
-  ["contactDuration", "contact_duration"],
-  ["routingProfile", "routing_profile"],
-  ["connectedToAgentTimestamp", "connected_to_agent_timestamp"],
-  ["scheduledTimestamp", "scheduled_timestamp"],
-  ["enqueueTimestamp", "enqueue_timestamp"],
-  ["acwStartTimestamp", "acw_start_timestamp"],
-  ["acwEndTimestamp", "acw_end_timestamp"],
-  ["agentInteractionDuration", "agent_interaction_duration"],
-  ["agentConnectionAttempts", "agent_connection_attempts"],
-  ["numberOfHolds", "number_of_holds"],
-  ["initiationMethod", "initiation_method"],
-  ["disconnectReason", "disconnect_reason"],
-  ["firstContactFlowName", "first_contact_flow_name"],
-  ["contactDirection", "contact_direction"],
-  ["preferredAgents", "preferred_agents"],
-  ["systemEmailAddress", "system_email_address"],
-  ["customerEmailAddress", "customer_email_address"],
-  ["phoneDescription", "phone_description"],
-  ["phoneType", "phone_type"],
-  ["activeChannels", "active_channels"],
-  ["contactFlowIvr", "contact_flow_ivr"],
-  ["country", "country"],
-];
+const NAV_LINKS = [
+  { id: "dashboard" as const, label: "Dashboard", icon: IconChartBar },
+  { id: "wbr" as const, label: "WBR", icon: IconCalendar },
+  { id: "phone-analysis" as const, label: "Phone Analysis", icon: IconPhone },
+  { id: "sla" as const, label: "SLA", icon: IconChartLine },
+  { id: "sla-inclusive" as const, label: "SLA (inclusive)", icon: IconHourglass },
+  { id: "abandonment" as const, label: "Abandonment", icon: IconExclamationCircle },
+  { id: "usage" as const, label: "Documentation", icon: IconBook },
+]
 
-const PHONE_FIELDS: [keyof PhoneRecord, string][] = [
-  ["phoneNumber", "phone_number"],
-  ["description", "description"],
-  ["phoneType", "phone_type"],
-  ["activeChannels", "active_channels"],
-  ["contactFlowIvr", "contact_flow_ivr"],
-  ["country", "country"],
-];
-
-function toSnake(record: Record<string, string>, fields: [string, string][]): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [camel, snake] of fields) {
-    if (record[camel] !== undefined) out[snake] = record[camel];
-  }
-  return out;
-}
-
-function toCamel(row: Record<string, unknown>, fields: [string, string][]): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [camel, snake] of fields) {
-    const val = row[snake];
-    out[camel] = val != null ? String(val) : "";
-  }
-  return out;
-}
-
-async function upsertBatched(
-  table: "contacts" | "phone_records",
-  rows: Record<string, string>[],
-  onConflict: string,
-  notifyId: string,
-  label: string,
-  batchSize = 1000,
-): Promise<void> {
-  const totalBatches = Math.ceil(rows.length / batchSize);
-  for (let i = 0; i < rows.length; i += batchSize) {
-    const batchNum = i / batchSize + 1;
-    const chunk = rows.slice(i, i + batchSize);
-    const { error } = await supabase
-      .from(table)
-      .upsert(chunk, { onConflict });
-    if (error) {
-      throw new Error(`Batch ${batchNum} / ${totalBatches} failed: ${error.message}`);
-    }
-    notifications.update({
-      id: notifyId,
-      message: `${batchNum} / ${totalBatches} batches (${label})`,
-      loading: true,
-    });
-  }
-}
+type ActivePage = (typeof NAV_LINKS)[number]["id"]
 
 export default function App() {
-  const { session, loading } = useAuth();
-  const [contactRecords, setContactRecords] = useState<ContactRecord[]>([]);
-  const [phoneRecords, setPhoneRecords] = useState<PhoneRecord[]>([]);
-  const [dbContactCount, setDbContactCount] = useState<number | null>(null);
-  const [dbPhoneCount, setDbPhoneCount] = useState<number | null>(null);
-  const [phoneCustomLoaded, setPhoneCustomLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [routingProfileFilter, setRoutingProfileFilter] = useState<string[]>(
-    [],
-  );
-  const [queueFilter, setQueueFilter] = useState<string[]>([]);
-  const [descriptionFilter, setDescriptionFilter] = useState<string[]>([]);
-  const [initiationMethodFilter, setInitiationMethodFilter] = useState<
-    string[]
-  >([]);
-  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([
-    null,
-    null,
-  ]);
-  const [dateMode, setDateMode] = useState<"single" | "range">("range");
-  const [dataLoadedAt, setDataLoadedAt] = useState<Date | null>(null);
-  const [dataModalOpened, setDataModalOpened] = useState(false);
-  const [freshLabel, setFreshLabel] = useState<string | null>(null);
-  const [lastUploadInfo, setLastUploadInfo] = useState<{ count: number; label: string } | null>(null);
-  const [supabaseLoading, setSupabaseLoading] = useState(false);
-  const refreshInterval = useRef<number | undefined>(undefined);
-  const realtimeDebounce = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const { session, loading, signOut } = useAuth();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const isDark = colorScheme === "dark";
-  const [activePage, setActivePage] = useState<
-    "dashboard" | "wbr" | "phone-analysis" | "sla" | "sla-inclusive" | "abandonment" | "usage"
-  >("dashboard");
-  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [activePage, setActivePage] = useState<ActivePage>("dashboard");
+  const [dataModalOpened, setDataModalOpened] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchFromSupabase = useCallback(async (options?: { silent?: boolean }) => {
-    if (!options?.silent) setSupabaseLoading(true);
-    try {
-      const PAGE_SIZE = 1000;
+  const data = useDataLoader(session);
+  const filters = useFilters(data.joinedRecords);
+  const timeLabel = useTimeLabel(data.dataLoadedAt);
+  const options = useFilterOptions(data.joinedRecords);
+  const datePresets = useDatePresets(filters.dateMode);
 
-      const fetchAllRows = async (table: "contacts" | "phone_records"): Promise<Record<string, unknown>[]> => {
-        const all: Record<string, unknown>[] = [];
-        let from = 0;
-        while (true) {
-          const { data, error } = await supabase
-            .from(table)
-            .select("*")
-            .range(from, from + PAGE_SIZE - 1);
-          if (error) throw error;
-          if (!data || data.length === 0) break;
-          all.push(...(data as Record<string, unknown>[]));
-          if (data.length < PAGE_SIZE) break;
-          from += PAGE_SIZE;
-        }
-        return all;
-      };
+  const handleUploadSuccess = useCallback(
+    (info: { count: number; label: string }) => {
+      timeLabel.setLastUploadInfo(info)
+    },
+    [timeLabel],
+  )
 
-      const [contactsAll, phonesAll, contactsCountResult, phonesCountResult] = await Promise.all([
-        fetchAllRows("contacts"),
-        fetchAllRows("phone_records"),
-        supabase.from("contacts").select("*", { count: "exact", head: true }),
-        supabase.from("phone_records").select("*", { count: "exact", head: true }),
-      ]);
+  const clearFilterState = useCallback(() => {
+    filters.setRoutingProfileFilter([])
+    filters.setQueueFilter([])
+    filters.setDescriptionFilter([])
+    filters.setInitiationMethodFilter([])
+  }, [filters])
 
-      const mappedContacts = contactsAll.map(
-        (r) => toCamel(r, CONTACT_FIELDS) as unknown as ContactRecord,
-      );
-      setContactRecords(mappedContacts);
-
-      const mappedPhones = phonesAll.map(
-        (r) => toCamel(r, PHONE_FIELDS) as unknown as PhoneRecord,
-      );
-      setPhoneRecords(mappedPhones);
-      if (mappedPhones.length > 0) setPhoneCustomLoaded(true);
-
-      if (typeof contactsCountResult.count === "number") {
-        setDbContactCount(contactsCountResult.count);
-      }
-      if (typeof phonesCountResult.count === "number") {
-        setDbPhoneCount(phonesCountResult.count);
-      }
-
-      if (contactsAll.length > 0) {
-        setDataLoadedAt(new Date());
-        setLastSyncedAt(new Date());
-      }
-    } catch {
-      setError("Failed to load data from server");
-    } finally {
-      if (!options?.silent) setSupabaseLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (session) {
-      fetchFromSupabase();
-    }
-  }, [session, fetchFromSupabase]);
-
-  useEffect(() => {
-    if (!session) return;
-
-    const handleChange = () => {
-      if (realtimeDebounce.current) clearTimeout(realtimeDebounce.current);
-      realtimeDebounce.current = setTimeout(() => {
-        fetchFromSupabase({ silent: true });
-      }, 2000);
-    };
-
-    const channel = supabase
-      .channel("db-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "contacts" },
-        handleChange,
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "phone_records" },
-        handleChange,
-      )
-      .subscribe();
-
-    return () => {
-      if (realtimeDebounce.current) clearTimeout(realtimeDebounce.current);
-      supabase.removeChannel(channel);
-    };
-  }, [session, fetchFromSupabase]);
-
-  useEffect(() => {
-    if (!dataLoadedAt) {
-      setFreshLabel(null);
-      return;
-    }
-    const update = () => {
-      const secs = Math.floor((Date.now() - dataLoadedAt.getTime()) / 1000);
-      const prefix = lastUploadInfo
-        ? `${lastUploadInfo.count.toLocaleString()} ${lastUploadInfo.label} loaded`
-        : "Loaded";
-      if (secs < 60) setFreshLabel(`${prefix} just now`);
-      else if (secs < 120) setFreshLabel(`${prefix} 1 min ago`);
-      else setFreshLabel(`${prefix} ${Math.floor(secs / 60)} min ago`);
-    };
-    update();
-    refreshInterval.current = window.setInterval(update, 30000);
-    return () => {
-      if (refreshInterval.current) clearInterval(refreshInterval.current);
-    };
-  }, [dataLoadedAt, lastUploadInfo]);
-
-  const handleContactsUpload = async (text: string) => {
-    try {
-      const parsed = parseContactCsv(text);
-      if (parsed.length === 0) {
-        setError("No records found in contacts CSV");
-        return;
-      }
-
-      if (session) {
-        const snakeData = parsed.map(
-          (r) => toSnake(r as unknown as Record<string, string>, CONTACT_FIELDS),
-        );
-        const nId = notifications.show({
-          title: "Syncing contacts",
-          message: "Starting upload...",
-          loading: true,
-          autoClose: false,
-          withCloseButton: false,
-        });
-        try {
-          await upsertBatched("contacts", snakeData, "contact_id", nId, "contacts");
-          notifications.update({
-            id: nId,
-            title: "Contacts synced",
-            message: `${parsed.length.toLocaleString()} records uploaded`,
-            color: "teal",
-            loading: false,
-            autoClose: 3000,
-          });
-          setLastUploadInfo({ count: parsed.length, label: "contacts" });
-          setDataLoadedAt(new Date());
-        } catch (e) {
-          notifications.update({
-            id: nId,
-            title: "Sync failed",
-            message: (e as Error).message,
-            color: "red",
-            loading: false,
-            autoClose: 5000,
-          });
-          setError((e as Error).message);
-          return;
-        }
-
-        await fetchFromSupabase();
-      } else {
-        setContactRecords(parsed);
-        setDataLoadedAt(new Date());
-      }
-
-      setRoutingProfileFilter([]);
-      setQueueFilter([]);
-      setDescriptionFilter([]);
-      setInitiationMethodFilter([]);
-      setError(null);
-    } catch {
-      setError("Failed to parse contacts CSV");
-    }
-  };
-
-  const handlePhonesUpload = async (text: string) => {
-    try {
-      const parsed = parsePhoneCsv(text);
-      if (parsed.length === 0) {
-        setError("No phone numbers found in CSV");
-        return;
-      }
-
-      if (session) {
-        const snakeData = parsed.map(
-          (r) => toSnake(r as unknown as Record<string, string>, PHONE_FIELDS),
-        );
-        const nId = notifications.show({
-          title: "Syncing phone numbers",
-          message: "Starting upload...",
-          loading: true,
-          autoClose: false,
-          withCloseButton: false,
-        });
-        try {
-          await upsertBatched("phone_records", snakeData, "phone_number", nId, "phone numbers");
-          notifications.update({
-            id: nId,
-            title: "Phone numbers synced",
-            message: `${parsed.length.toLocaleString()} numbers uploaded`,
-            color: "teal",
-            loading: false,
-            autoClose: 3000,
-          });
-          setLastUploadInfo({ count: parsed.length, label: "phone numbers" });
-          setDataLoadedAt(new Date());
-        } catch (e) {
-          notifications.update({
-            id: nId,
-            title: "Sync failed",
-            message: (e as Error).message,
-            color: "red",
-            loading: false,
-            autoClose: 5000,
-          });
-          setError((e as Error).message);
-          return;
-        }
-
-        await fetchFromSupabase();
-      } else {
-        setPhoneRecords(parsed);
-        setPhoneCustomLoaded(true);
-      }
-
-      setError(null);
-    } catch {
-      setError("Failed to parse phone numbers CSV");
-    }
-  };
-
-  const { signOut } = useAuth();
-
-  const joinedRecords = useMemo(
-    () =>
-      contactRecords.length > 0 ? joinData(contactRecords, phoneRecords) : [],
-    [contactRecords, phoneRecords],
-  );
-
-  const overallMetrics = useMemo(
-    () => (joinedRecords.length > 0 ? calculateMetrics(joinedRecords) : null),
-    [joinedRecords],
-  );
-
-  const routingProfileOptions = useMemo(() => {
-    const values = new Set(
-      joinedRecords.reduce<string[]>((acc, r) => {
-        if (r.routingProfile) acc.push(r.routingProfile);
-        return acc;
-      }, []),
-    );
-    return Array.from(values)
-      .sort((a, b) => a.localeCompare(b))
-      .map((v) => ({ value: v, label: v }));
-  }, [joinedRecords]);
-
-  const queueOptions = useMemo(() => {
-    const values = new Set(
-      joinedRecords.reduce<string[]>((acc, r) => {
-        if (r.queue) acc.push(r.queue);
-        return acc;
-      }, []),
-    );
-    return Array.from(values)
-      .sort((a, b) => a.localeCompare(b))
-      .map((v) => ({ value: v, label: v }));
-  }, [joinedRecords]);
-
-  const descriptionOptions = useMemo(() => {
-    const values = new Set(
-      joinedRecords.reduce<string[]>((acc, r) => {
-        if (r.phoneDescription) acc.push(r.phoneDescription);
-        return acc;
-      }, []),
-    );
-    return Array.from(values)
-      .sort((a, b) => a.localeCompare(b))
-      .map((v) => ({ value: v, label: v }));
-  }, [joinedRecords]);
-
-  const initiationMethodOptions = useMemo(() => {
-    const values = new Set(
-      joinedRecords.reduce<string[]>((acc, r) => {
-        if (r.initiationMethod) acc.push(r.initiationMethod);
-        return acc;
-      }, []),
-    );
-    return Array.from(values)
-      .sort((a, b) => a.localeCompare(b))
-      .map((v) => ({ value: v, label: v }));
-  }, [joinedRecords]);
-
-  const filteredRecords = useMemo(() => {
-    let records = joinedRecords;
-    if (dateRange[0]) {
-      records = records.filter((r) => {
-        const d = parseDate(r.initiationTimestamp);
-        return d && d >= dateRange[0]!;
-      });
-    }
-    if (dateRange[1]) {
-      const end = new Date(dateRange[1].getTime() + 86400000);
-      records = records.filter((r) => {
-        const d = parseDate(r.initiationTimestamp);
-        return d && d < end;
-      });
-    }
-    if (routingProfileFilter.length > 0) {
-      records = records.filter(
-        (r) => r.routingProfile && routingProfileFilter.includes(r.routingProfile),
-      );
-    }
-    if (queueFilter.length > 0) {
-      records = records.filter(
-        (r) => r.queue && queueFilter.includes(r.queue),
-      );
-    }
-    if (descriptionFilter.length > 0) {
-      records = records.filter(
-        (r) => r.phoneDescription && descriptionFilter.includes(r.phoneDescription),
-      );
-    }
-    if (initiationMethodFilter.length > 0) {
-      records = records.filter(
-        (r) => r.initiationMethod && initiationMethodFilter.includes(r.initiationMethod),
-      );
-    }
-    return records;
-  }, [
-    joinedRecords,
-    dateRange,
-    routingProfileFilter,
-    queueFilter,
-    descriptionFilter,
-    initiationMethodFilter,
-  ]);
-
-  const metrics = useMemo(
-    () =>
-      filteredRecords.length > 0 ? calculateMetrics(filteredRecords) : null,
-    [filteredRecords],
-  );
-
-  const clearFilters = useCallback(() => {
-    setRoutingProfileFilter([]);
-    setQueueFilter([]);
-    setDescriptionFilter([]);
-    setInitiationMethodFilter([]);
-    setDateRange([null, null]);
-  }, []);
-
-  const filterLabel = useMemo(() => {
-    const parts: string[] = [];
-    if (dateRange[0] && dateRange[1])
-      parts.push(
-        `${dateRange[0].toLocaleDateString()} – ${dateRange[1].toLocaleDateString()}`,
-      );
-    else if (dateRange[0])
-      parts.push(`From ${dateRange[0].toLocaleDateString()}`);
-    else if (dateRange[1])
-      parts.push(`To ${dateRange[1].toLocaleDateString()}`);
-    if (routingProfileFilter.length > 0)
-      parts.push(`Routing Profile: ${routingProfileFilter.join(', ')}`);
-    if (queueFilter.length > 0)
-      parts.push(`Queue: ${queueFilter.join(', ')}`);
-    if (initiationMethodFilter.length > 0)
-      parts.push(`Initiation: ${initiationMethodFilter.join(', ')}`);
-    if (descriptionFilter.length > 0)
-      parts.push(`Description: ${descriptionFilter.join(', ')}`);
-    return parts.join(", ");
-  }, [
-    dateRange,
-    routingProfileFilter,
-    queueFilter,
-    initiationMethodFilter,
-    descriptionFilter,
-  ]);
-
-  const hasFilter =
-    !!(dateRange[0] || dateRange[1]) ||
-    routingProfileFilter.length > 0 ||
-    queueFilter.length > 0 ||
-    descriptionFilter.length > 0 ||
-    initiationMethodFilter.length > 0;
-
-  const missingDescriptionCount = useMemo(
-    () => joinedRecords.filter((r) => !r.phoneDescription).length,
-    [joinedRecords],
-  );
+  const { handleContactsUpload, handlePhonesUpload } = useUploader(
+    {
+      session,
+      hasSupabase: !!session,
+      fetch: () => data.fetch({ silent: true }),
+    },
+    {
+      onUploadSuccess: handleUploadSuccess,
+      setError: (e: string) => setError(e || null),
+      clearFilterState,
+      setContactRecords: data.setContactRecords,
+      setPhoneRecords: data.setPhoneRecords,
+      setPhoneCustomLoaded: data.setPhoneCustomLoaded,
+      setDataLoadedAt: data.setDataLoadedAt,
+    },
+  )
 
   const datesWithData = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of joinedRecords) {
+    const set = new Set<string>()
+    for (const r of data.joinedRecords) {
       if (r.initiationTimestamp && r.initiationTimestamp.length >= 10) {
-        set.add(r.initiationTimestamp.slice(0, 10));
+        set.add(r.initiationTimestamp.slice(0, 10))
       }
     }
-    return set;
-  }, [joinedRecords]);
+    return set
+  }, [data.joinedRecords])
+
+  const renderDay = useCallback(
+    (date: Date) => {
+      const dateStr = date.toISOString().slice(0, 10)
+      const hasData = datesWithData.has(dateStr)
+      return (
+        <div
+          style={{
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "100%",
+            height: "100%",
+            gap: 2,
+          }}
+        >
+          <div style={{ lineHeight: 1 }}>{date.getDate()}</div>
+          {hasData && (
+            <div
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: "50%",
+                background: "var(--mantine-color-teal-5)",
+              }}
+            />
+          )}
+        </div>
+      )
+    },
+    [datesWithData],
+  )
+
+  const overallMetrics = useMemo(
+    () => (data.joinedRecords.length > 0 ? calculateMetrics(data.joinedRecords) : null),
+    [data.joinedRecords],
+  )
+
+  const missingDescriptionCount = useMemo(
+    () => data.joinedRecords.filter((r) => !r.phoneDescription).length,
+    [data.joinedRecords],
+  )
 
   if (loading) {
     return (
@@ -583,11 +176,11 @@ export default function App() {
           <Loader size="lg" />
         </Center>
       </Box>
-    );
+    )
   }
 
   if (!session) {
-    return <LoginPage />;
+    return <LoginPage />
   }
 
   return (
@@ -605,15 +198,24 @@ export default function App() {
               </Title>
               <Text c="dimmed" size="sm" visibleFrom="sm">
                 Agent Connect, ACW &amp; Handle Times
-                {freshLabel && <span> &middot; {freshLabel}</span>}
-                {supabaseLoading && <span> &middot; Syncing...</span>}
+                {timeLabel.freshLabel && <span> &middot; {timeLabel.freshLabel}</span>}
+                {data.loadingProgress && (
+                  <span>
+                    {" "}&middot; Loading {data.loadingProgress.loaded.toLocaleString()}
+                    {data.loadingProgress.total
+                      ? ` of ${data.loadingProgress.total.toLocaleString()}`
+                      : ""}{" "}
+                    records
+                  </span>
+                )}
+                {!data.loadingProgress && data.supabaseLoading && <span> &middot; Syncing...</span>}
               </Text>
             </Group>
 
             <Group wrap="nowrap">
-              {supabaseLoading ? (
+              {data.supabaseLoading ? (
                 <Loader size="sm" />
-              ) : joinedRecords.length > 0 ? (
+              ) : data.joinedRecords.length > 0 ? (
                 <Paper
                   shadow="xs"
                   py={6}
@@ -626,19 +228,19 @@ export default function App() {
                   <Group gap="xs">
                     <IconUpload size={14} />
                     <Text size="sm" fw={500}>
-                      {joinedRecords.length.toLocaleString()} records
+                      {data.joinedRecords.length.toLocaleString()} records
                     </Text>
-                    {dbContactCount !== null && dbContactCount !== joinedRecords.length && (
+                    {data.dbContactCount !== null && data.dbContactCount !== data.joinedRecords.length && (
                       <Text size="xs" c="dimmed" visibleFrom="sm">
-                        (of {dbContactCount.toLocaleString()} in DB)
+                        (of {data.dbContactCount.toLocaleString()} in DB)
                       </Text>
                     )}
                     <Text size="xs" c="dimmed" visibleFrom="sm">
-                      &middot; {phoneRecords.length.toLocaleString()} numbers
+                      &middot; {data.phoneRecords.length.toLocaleString()} numbers
                     </Text>
-                    {dbPhoneCount !== null && dbPhoneCount !== phoneRecords.length && (
+                    {data.dbPhoneCount !== null && data.dbPhoneCount !== data.phoneRecords.length && (
                       <Text size="xs" c="dimmed" visibleFrom="sm">
-                        (of {dbPhoneCount.toLocaleString()} in DB)
+                        (of {data.dbPhoneCount.toLocaleString()} in DB)
                       </Text>
                     )}
                   </Group>
@@ -679,62 +281,20 @@ export default function App() {
         </AppShell.Header>
 
         <AppShell.Navbar p="sm">
-          <NavLink
-            label="Dashboard"
-            leftSection={<IconChartBar size={20} />}
-            active={activePage === "dashboard"}
-            onClick={() => setActivePage("dashboard")}
-            variant="light"
-            style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
-          />
-          <NavLink
-            label="WBR"
-            leftSection={<IconCalendar size={20} />}
-            active={activePage === "wbr"}
-            onClick={() => setActivePage("wbr")}
-            variant="light"
-            style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
-          />
-          <NavLink
-            label="Phone Analysis"
-            leftSection={<IconPhone size={20} />}
-            active={activePage === "phone-analysis"}
-            onClick={() => setActivePage("phone-analysis")}
-            variant="light"
-            style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
-          />
-          <NavLink
-            label="SLA"
-            leftSection={<IconChartLine size={20} />}
-            active={activePage === "sla"}
-            onClick={() => setActivePage("sla")}
-            variant="light"
-            style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
-          />
-          <NavLink
-            label="SLA (inclusive)"
-            leftSection={<IconHourglass size={20} />}
-            active={activePage === "sla-inclusive"}
-            onClick={() => setActivePage("sla-inclusive")}
-            variant="light"
-            style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
-          />
-          <NavLink
-            label="Abandonment"
-            leftSection={<IconExclamationCircle size={20} />}
-            active={activePage === "abandonment"}
-            onClick={() => setActivePage("abandonment")}
-            variant="light"
-            style={{ borderRadius: "var(--mantine-radius-xl)", marginBottom: 4 }}
-          />
-          <NavLink
-            label="Documentation"
-            leftSection={<IconBook size={20} />}
-            active={activePage === "usage"}
-            onClick={() => setActivePage("usage")}
-            variant="light"
-            style={{ borderRadius: "var(--mantine-radius-xl)" }}
-          />
+          {NAV_LINKS.map((link) => (
+            <NavLink
+              key={link.id}
+              label={link.label}
+              leftSection={<link.icon size={20} />}
+              active={activePage === link.id}
+              onClick={() => setActivePage(link.id)}
+              variant="light"
+              style={{
+                borderRadius: "var(--mantine-radius-xl)",
+                marginBottom: 4,
+              }}
+            />
+          ))}
         </AppShell.Navbar>
 
         <AppShell.Main>
@@ -759,7 +319,7 @@ export default function App() {
                 </motion.div>
               )}
 
-              {joinedRecords.length > 0 && (
+              {data.joinedRecords.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -773,109 +333,36 @@ export default function App() {
                   >
                     <Stack gap="sm">
                       <Group gap="sm" align="end" grow preventGrowOverflow={false}>
-                        <Stack gap={4} style={{ minWidth: 220 }}>
+                        <Stack gap={6} style={{ minWidth: 240 }}>
                           <Group justify="space-between" align="center" wrap="nowrap">
                             <Text size="sm" fw={500}>
-                              {dateMode === "single" ? "Date" : "Date Range"}
+                              {filters.dateMode === "single" ? "Date" : "Date Range"}
                             </Text>
                             <SegmentedControl
                               size="xs"
-                              value={dateMode}
-                              onChange={(v) => setDateMode(v as "single" | "range")}
+                              value={filters.dateMode}
+                              onChange={(v) => filters.setDateMode(v as "single" | "range")}
                               data={[
                                 { value: "single", label: "Single" },
                                 { value: "range", label: "Range" },
                               ]}
                             />
                           </Group>
-                          {dateMode === "range" ? (
-                            <DatePickerInput
-                              type="range"
-                              placeholder="Pick dates"
-                              value={dateRange}
-                              onChange={(v) => setDateRange(v ?? [null, null])}
-                              clearable
-                              leftSection={<IconCalendar size={16} />}
-                              renderDay={(date) => {
-                                const dateStr = date.toISOString().slice(0, 10)
-                                const hasData = datesWithData.has(dateStr)
-                                return (
-                                  <div
-                                    style={{
-                                      position: "relative",
-                                      display: "flex",
-                                      flexDirection: "column",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      width: "100%",
-                                      height: "100%",
-                                    }}
-                                  >
-                                    <div>{date.getDate()}</div>
-                                    {hasData && (
-                                      <div
-                                        style={{
-                                          position: "absolute",
-                                          bottom: 2,
-                                          width: 4,
-                                          height: 4,
-                                          borderRadius: "50%",
-                                          background: "var(--mantine-color-teal-5)",
-                                        }}
-                                      />
-                                    )}
-                                  </div>
-                                )
-                              }}
-                            />
-                          ) : (
-                            <DatePickerInput
-                              type="default"
-                              placeholder="Pick a date"
-                              value={dateRange[0]}
-                              onChange={(d) => setDateRange(d ? [d, d] : [null, null])}
-                              clearable
-                              leftSection={<IconCalendar size={16} />}
-                              renderDay={(date) => {
-                                const dateStr = date.toISOString().slice(0, 10)
-                                const hasData = datesWithData.has(dateStr)
-                                return (
-                                  <div
-                                    style={{
-                                      position: "relative",
-                                      display: "flex",
-                                      flexDirection: "column",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      width: "100%",
-                                      height: "100%",
-                                    }}
-                                  >
-                                    <div>{date.getDate()}</div>
-                                    {hasData && (
-                                      <div
-                                        style={{
-                                          position: "absolute",
-                                          bottom: 2,
-                                          width: 4,
-                                          height: 4,
-                                          borderRadius: "50%",
-                                          background: "var(--mantine-color-teal-5)",
-                                        }}
-                                      />
-                                    )}
-                                  </div>
-                                )
-                              }}
-                            />
-                          )}
+                          <DatePickerPopover
+                            mode={filters.dateMode}
+                            value={filters.dateRange}
+                            onChange={filters.setDateRange}
+                            presets={datePresets as DatePreset[]}
+                            renderDay={renderDay}
+                            placeholder={filters.dateMode === "single" ? "Pick a date" : "Pick dates"}
+                          />
                         </Stack>
                         <MultiSelect
                           label="Initiation Method"
                           placeholder="All methods"
-                          data={initiationMethodOptions}
-                          value={initiationMethodFilter}
-                          onChange={setInitiationMethodFilter}
+                          data={options.initiationMethodOptions}
+                          value={filters.initiationMethodFilter}
+                          onChange={filters.setInitiationMethodFilter}
                           clearable
                           searchable
                           style={{ minWidth: 140 }}
@@ -886,9 +373,9 @@ export default function App() {
                         <MultiSelect
                           label="Queue"
                           placeholder="All queues"
-                          data={queueOptions}
-                          value={queueFilter}
-                          onChange={setQueueFilter}
+                          data={options.queueOptions}
+                          value={filters.queueFilter}
+                          onChange={filters.setQueueFilter}
                           clearable
                           searchable
                           style={{ minWidth: 140 }}
@@ -897,9 +384,9 @@ export default function App() {
                         <MultiSelect
                           label="Routing Profile"
                           placeholder="All routing profiles"
-                          data={routingProfileOptions}
-                          value={routingProfileFilter}
-                          onChange={setRoutingProfileFilter}
+                          data={options.routingProfileOptions}
+                          value={filters.routingProfileFilter}
+                          onChange={filters.setRoutingProfileFilter}
                           clearable
                           searchable
                           style={{ minWidth: 140 }}
@@ -908,19 +395,19 @@ export default function App() {
                         <MultiSelect
                           label="Phone Description"
                           placeholder="All descriptions"
-                          data={descriptionOptions}
-                          value={descriptionFilter}
-                          onChange={setDescriptionFilter}
+                          data={options.descriptionOptions}
+                          value={filters.descriptionFilter}
+                          onChange={filters.setDescriptionFilter}
                           clearable
                           searchable
                           style={{ minWidth: 140 }}
                           leftSection={<IconFilter size={14} />}
                         />
-                        {hasFilter && (
+                        {filters.hasFilter && (
                           <Button
                             variant="subtle"
                             color="gray"
-                            onClick={clearFilters}
+                            onClick={filters.clearFilters}
                             leftSection={<IconFilterOff size={16} />}
                             style={{ marginTop: 24 }}
                           >
@@ -933,39 +420,61 @@ export default function App() {
                 </motion.div>
               )}
 
-              {activePage === "dashboard" && (
-                <DashboardOverview records={filteredRecords} />
-              )}
+              {activePage === "dashboard" &&
+                (data.contactRecords.length === 0 && data.supabaseLoading ? (
+                  <ContentSkeleton showTable={false} />
+                ) : (
+                  <DashboardOverview records={filters.filteredRecords} />
+                ))}
 
-              {activePage === "wbr" && (
-                <WbrPage
-                  records={filteredRecords}
-                  totalRecords={joinedRecords.length}
-                  filteredRecords={filteredRecords.length}
-                  metrics={metrics}
-                  overallMetrics={overallMetrics}
-                  filterLabel={filterLabel}
-                  missingDescriptionCount={missingDescriptionCount}
-                  contactRecordsLength={contactRecords.length}
-                />
-              )}
+              {activePage === "wbr" &&
+                (data.contactRecords.length === 0 && data.supabaseLoading ? (
+                  <ContentSkeleton />
+                ) : (
+                  <WbrPage
+                    records={filters.filteredRecords}
+                    totalRecords={data.joinedRecords.length}
+                    filteredRecords={filters.filteredRecords.length}
+                    metrics={filters.metrics}
+                    overallMetrics={overallMetrics}
+                    filterLabel={filters.filterLabel}
+                    missingDescriptionCount={missingDescriptionCount}
+                    contactRecordsLength={data.contactRecords.length}
+                  />
+                ))}
 
-              {activePage === "phone-analysis" && (
-                <PhoneDescriptionBreakdown
-                  records={filteredRecords}
-                  totalRecords={joinedRecords.length}
-                  filteredRecords={filteredRecords.length}
-                  filterLabel={filterLabel}
-                />
-              )}
+              {activePage === "phone-analysis" &&
+                (data.contactRecords.length === 0 && data.supabaseLoading ? (
+                  <ContentSkeleton showCharts={false} />
+                ) : (
+                  <PhoneDescriptionBreakdown
+                    records={filters.filteredRecords}
+                    totalRecords={data.joinedRecords.length}
+                    filteredRecords={filters.filteredRecords.length}
+                    filterLabel={filters.filterLabel}
+                  />
+                ))}
 
-              {activePage === "sla" && <SlaAnalysis records={filteredRecords} />}
+              {activePage === "sla" &&
+                (data.contactRecords.length === 0 && data.supabaseLoading ? (
+                  <ContentSkeleton />
+                ) : (
+                  <SlaAnalysis records={filters.filteredRecords} />
+                ))}
 
-              {activePage === "sla-inclusive" && <SlaInclusiveAnalysis records={filteredRecords} />}
+              {activePage === "sla-inclusive" &&
+                (data.contactRecords.length === 0 && data.supabaseLoading ? (
+                  <ContentSkeleton />
+                ) : (
+                  <SlaInclusiveAnalysis records={filters.filteredRecords} />
+                ))}
 
-              {activePage === "abandonment" && (
-                <AbandonmentAnalysis records={filteredRecords} />
-              )}
+              {activePage === "abandonment" &&
+                (data.contactRecords.length === 0 && data.supabaseLoading ? (
+                  <ContentSkeleton />
+                ) : (
+                  <AbandonmentAnalysis records={filters.filteredRecords} />
+                ))}
 
               {activePage === "usage" && <DocumentationPage />}
             </Stack>
@@ -978,10 +487,10 @@ export default function App() {
         onClose={() => setDataModalOpened(false)}
         onPhonesUpload={handlePhonesUpload}
         onContactsUpload={handleContactsUpload}
-        phoneLoaded={phoneCustomLoaded}
-        contactsLoaded={contactRecords.length > 0}
-        phoneCount={phoneRecords.length}
-        contactCount={contactRecords.length}
+        phoneLoaded={data.phoneCustomLoaded}
+        contactsLoaded={data.contactRecords.length > 0}
+        phoneCount={data.phoneRecords.length}
+        contactCount={data.contactRecords.length}
       />
     </Box>
   );

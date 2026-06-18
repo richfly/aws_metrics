@@ -1,4 +1,4 @@
-import { Stack, Alert, Text, Group } from '@mantine/core'
+import { Stack, Alert, Text, Group, Paper } from '@mantine/core'
 import { motion } from 'framer-motion'
 import { ContactRecord, DetailedMetrics } from '../types'
 import { ExecutiveSummary } from './ExecutiveSummary'
@@ -35,6 +35,16 @@ export function WbrPage({
   missingDescriptionCount,
   contactRecordsLength,
 }: WbrPageProps) {
+  if (totalRecords === 0) {
+    return (
+      <Paper shadow="sm" radius="md" p="xl" className="glass-panel">
+        <Text c="dimmed" ta="center" py="xl">
+          No data available. Click "Load Data" in the header to upload contact records.
+        </Text>
+      </Paper>
+    )
+  }
+
   return (
     <Stack gap="md">
       {totalRecords > 0 && (
