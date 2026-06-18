@@ -112,7 +112,7 @@ export function SlaInclusiveAnalysis({ records }: SlaInclusiveAnalysisProps) {
                     w={180}
                     withArrow
                   >
-                    <IconInfoCircle size={16} style={{ opacity: 0.4, cursor: "help" }} />
+                    <IconInfoCircle size={16} color="var(--mantine-color-dimmed)" style={{ cursor: "help" }} />
                   </Tooltip>
                 </Group>
                 <Text size="xs" c="dimmed">
@@ -180,7 +180,7 @@ export function SlaInclusiveAnalysis({ records }: SlaInclusiveAnalysisProps) {
                     w={260}
                     withArrow
                   >
-                    <IconInfoCircle size={14} style={{ opacity: 0.4, cursor: "help" }} />
+                    <IconInfoCircle size={14} color="var(--mantine-color-dimmed)" style={{ cursor: "help" }} />
                   </Tooltip>
                 </Group>
                 <Text size="xs" c="dimmed" mb="sm">

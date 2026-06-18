@@ -27,7 +27,7 @@ const resolver: CSSVariablesResolver = () => ({
     '--mantine-color-dimmed': '#A0A0A0',
   },
   light: {
-    '--mantine-color-dimmed': '#6B7280',
+    '--mantine-color-dimmed': '#4A5160',
   },
   variables: {},
 })

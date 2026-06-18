@@ -199,9 +199,9 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
               <Group justify="space-between" mb="xs">
                 <Group gap="xs">
                   <Text fw={600} size="sm">Contact Volume</Text>
-                  <Tooltip label="All contacts per day including abandoned" multiline w={200} withArrow>
-                    <IconInfoCircle size={14} style={{ opacity: 0.4, cursor: "help" }} />
-                  </Tooltip>
+                <Tooltip label="All contacts per day including abandoned" multiline w={200} withArrow>
+                  <IconInfoCircle size={14} color="var(--mantine-color-dimmed)" style={{ cursor: "help" }} />
+                </Tooltip>
                 </Group>
                 <ChartExportButton targetRef={volumeChartRef} filename="contact-volume" />
               </Group>
@@ -226,9 +226,9 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
               <Group justify="space-between" mb="xs">
                 <Group gap="xs">
                   <Text fw={600} size="sm">Service Level Trend</Text>
-                  <Tooltip label="% of contacts answered within 60 seconds per day, with 7-day rolling average" multiline w={240} withArrow>
-                    <IconInfoCircle size={14} style={{ opacity: 0.4, cursor: "help" }} />
-                  </Tooltip>
+                <Tooltip label="% of contacts answered within 60 seconds per day, with 7-day rolling average" multiline w={240} withArrow>
+                  <IconInfoCircle size={14} color="var(--mantine-color-dimmed)" style={{ cursor: "help" }} />
+                </Tooltip>
                 </Group>
                 <ChartExportButton targetRef={slaChartRef} filename="service-level-trend" />
               </Group>
