@@ -2,7 +2,7 @@ import { ContactRecord } from '../types'
 
 export interface AnomalyItem {
   id: string
-  category: 'wait-time' | 'abandonment' | 'agent' | 'volume' | 'repeat'
+  category: 'wait-time' | 'abandonment' | 'agent' | 'volume' | 'repeat' | 'data-quality'
   severity: number
   entity: string
   period: string
@@ -218,10 +218,14 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
     }
     const acwStart = parseDate(r.acwStartTimestamp)
     const acwEnd = parseDate(r.acwEndTimestamp)
-    if (acwStart && acwEnd) agentGroups[agent].acwMins.push((acwEnd.getTime() - acwStart.getTime()) / 60000)
+    if (acwStart && acwEnd) {
+      const acwMin = (acwEnd.getTime() - acwStart.getTime()) / 60000
+      agentGroups[agent].acwMins.push(acwMin)
+    }
   }
 
-  const allAcwMins = Object.values(agentGroups).flatMap(g => g.acwMins)
+  const ACW_CAP = 30
+  const allAcwMins = Object.values(agentGroups).flatMap(g => g.acwMins.filter(m => m <= ACW_CAP))
   const acwMean = overallMean(allAcwMins)
   const acwStd = overallStd(allAcwMins)
 
@@ -244,8 +248,9 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
         recommendation: `Review "${agent}"'s agent connection attempts in detail. Common causes include: (1) agent not accepting calls promptly, (2) agent toggling status during active routing, (3) technical issues with the agent's softphone or connection. Consider coaching on availability status management and first-attempt answer rates.`,
       })
     }
-    if (g.acwMins.length >= 3 && acwStd > 0) {
-      const avgAcw = overallMean(g.acwMins)
+    const cappedAcw = g.acwMins.filter(m => m <= ACW_CAP)
+    if (cappedAcw.length >= 3 && acwStd > 0) {
+      const avgAcw = overallMean(cappedAcw)
       const z = (avgAcw - acwMean) / acwStd
       if (Math.abs(z) >= 2) {
         items.push({
@@ -255,13 +260,13 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
           entity: agent,
           period: 'all-time',
           finding: `ACW z-score ${z.toFixed(1)} (avg ${avgAcw.toFixed(1)} min vs baseline ${acwMean.toFixed(1)} min)`,
-          detail: `n=${g.acwMins.length} contacts`,
+          detail: `n=${cappedAcw.length} contacts (ACW values >30 min excluded from avg)`,
           baseline: Math.round(acwMean * 10) / 10,
           recent: Math.round(avgAcw * 10) / 10,
           unit: 'min',
-          description: `Agent "${agent}" has an average After-Contact Work (ACW) time of ${avgAcw.toFixed(1)} minutes, which is ${Math.abs(z).toFixed(1)} standard deviations ${z > 0 ? 'above' : 'below'} the team baseline of ${acwMean.toFixed(1)} minutes. ${z > 0 ? 'Excessively high ACW time means the agent is spending significantly longer than peers wrapping up after each call, reducing their availability for new contacts.' : 'Unusually low ACW time may indicate the agent is skipping wrap-up tasks, which could affect data quality or after-call documentation.'}`,
+          description: `Agent "${agent}" has an average After-Contact Work (ACW) time of ${avgAcw.toFixed(1)} minutes, which is ${Math.abs(z).toFixed(1)} standard deviations ${z > 0 ? 'above' : 'below'} the team baseline of ${acwMean.toFixed(1)} minutes. ${z > 0 ? 'Excessively high ACW time means the agent is spending significantly longer than peers wrapping up after each call, reducing their availability for new contacts.' : 'Unusually low ACW time may indicate the agent is skipping wrap-up tasks, which could affect data quality or after-call documentation.'} ACW values exceeding 30 minutes (likely forgotten open states) are excluded from this calculation.`,
           recommendation: z > 0
-            ? `Investigate whether "${agent}" is handling more complex call types, struggling with post-call processes, or experiencing system delays. Very high ACW (especially >500 min) may indicate forgotten open ACW states — check if agents are leaving contacts in ACW status indefinitely. Consider setting ACW time limits or adding reminder notifications.`
+            ? `Investigate whether "${agent}" is handling more complex call types, struggling with post-call processes, or experiencing system delays. Consider setting ACW time limits or adding reminder notifications. Review whether any contacts show ACW times over 30 minutes, which likely indicate forgotten open states rather than real work.`
             : `Review whether "${agent}"'s low ACW time is due to efficient processes or shortcutting required wrap-up work. Verify after-call documentation quality and compliance requirements are being met.`,
         })
       }
@@ -300,6 +305,60 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
       description: `${repeatPct.toFixed(1)}% of all contacts are from customers who called back within 24 hours of their previous contact. This is a first-call resolution (FCR) indicator — a high rate means customers are not getting their issues resolved on the first contact, forcing them to call back. Industry benchmark for FCR is typically 70-75%, meaning 25-30% repeat contact is common, but rates above 40-50% signal systemic issues.`,
       recommendation: `Analyze the top reasons for repeat contacts: (1) Check which queues have the highest repeat rates — they may need better agent training or authority to resolve issues. (2) Review disconnect reasons for first contacts that led to callbacks — are customers being disconnected? (3) Consider implementing callback or scheduled contact options to reduce repeat volume. (4) Review whether self-service options (IVR, chatbot) could deflect common repeat issues.`,
     })
+  }
+
+  // --- Data quality: forgotten ACW states ---
+  const forgottenAcwAgents: { agent: string; forgottenCount: number; totalAcw: number; maxAcwMin: number }[] = []
+  for (const [agent, g] of Object.entries(agentGroups)) {
+    if (g.acwMins.length === 0) continue
+    const forgotten = g.acwMins.filter(m => m > ACW_CAP)
+    if (forgotten.length > 0) {
+      forgottenAcwAgents.push({
+        agent,
+        forgottenCount: forgotten.length,
+        totalAcw: g.acwMins.length,
+        maxAcwMin: Math.max(...g.acwMins),
+      })
+    }
+  }
+  forgottenAcwAgents.sort((a, b) => b.maxAcwMin - a.maxAcwMin)
+  const totalForgotten = forgottenAcwAgents.reduce((s, a) => s + a.forgottenCount, 0)
+  if (totalForgotten > 0) {
+    const totalAcwRecords = Object.values(agentGroups).reduce((s, g) => s + g.acwMins.length, 0)
+    const forgottenPct = totalAcwRecords > 0 ? (totalForgotten / totalAcwRecords) * 100 : 0
+    const worstAgent = forgottenAcwAgents[0]
+    items.push({
+      id: 'data-quality-forgotten-acw',
+      category: 'data-quality',
+      severity: Math.min(Math.round(forgottenPct / 2), 10),
+      entity: `${forgottenAcwAgents.length} agent(s)`,
+      period: 'all-time',
+      finding: `${totalForgotten} forgotten ACW states (>${ACW_CAP} min) across ${forgottenAcwAgents.length} agent(s)`,
+      detail: `Worst: ${worstAgent.agent} has ACW up to ${Math.round(worstAgent.maxAcwMin)} min. ${forgottenPct.toFixed(1)}% of all ACW records exceed ${ACW_CAP} min and are likely data quality issues.`,
+      baseline: 0,
+      recent: Math.round(forgottenPct * 10) / 10,
+      unit: '%',
+      description: `After-Contact Work (ACW) times exceeding ${ACW_CAP} minutes are almost certainly not real work — they represent agents who left contacts in ACW state and never closed them. The longest recorded ACW in the dataset is ${Math.round(worstAgent.maxAcwMin)} minutes (${(worstAgent.maxAcwMin / 60).toFixed(1)} hours), which is physically impossible for after-call wrap-up. These inflated values skew all ACW averages and make agent comparisons unreliable. ${forgottenAcwAgents.length} agent(s) have at least one ACW record over ${ACW_CAP} minutes, totaling ${totalForgotten} records (${forgottenPct.toFixed(1)}% of all ACW data).`,
+      recommendation: `(1) Check the Amazon Connect CCP or supervisor dashboard for contacts currently stuck in ACW state and close them. (2) Implement an ACW timeout policy (e.g., auto-close ACW after 10 minutes). (3) Add a supervisor alert for any ACW state lasting over ${ACW_CAP} minutes. (4) Consider excluding ACW values >${ACW_CAP} min from agent performance calculations — these anomalies are already filtered from the ACW z-score comparison above.`,
+    })
+    for (const fa of forgottenAcwAgents.slice(0, 3)) {
+      if (fa.maxAcwMin > 120) {
+        items.push({
+          id: `data-quality-acw-${fa.agent}`,
+          category: 'data-quality',
+          severity: Math.min(Math.round(fa.maxAcwMin / 60), 10),
+          entity: fa.agent,
+          period: 'all-time',
+          finding: `ACW up to ${Math.round(fa.maxAcwMin)} min (${(fa.maxAcwMin / 60).toFixed(1)} hrs)`,
+          detail: `${fa.forgottenCount} of ${fa.totalAcw} ACW records exceed ${ACW_CAP} min`,
+          baseline: 0,
+          recent: Math.round(fa.maxAcwMin),
+          unit: 'min',
+          description: `Agent "${fa.agent}" has ACW records lasting up to ${Math.round(fa.maxAcwMin)} minutes (${(fa.maxAcwMin / 60).toFixed(1)} hours). This is almost certainly a forgotten open ACW state rather than actual after-call work. Normal ACW ranges from 30 seconds to 10 minutes. This data quality issue inflates this agent's average ACW time and makes comparisons unreliable.`,
+          recommendation: `Contact "${fa.agent}" or their supervisor to close any open ACW states. Implement an automated ACW timeout or supervisor alert for ACW exceeding ${ACW_CAP} minutes.`,
+        })
+      }
+    }
   }
 
   // --- Volume anomalies (z-score on daily counts) ---

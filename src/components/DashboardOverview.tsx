@@ -1,5 +1,5 @@
 import { useMemo, useRef } from 'react'
-import { Paper, Text, Group, SimpleGrid, Stack, Tooltip } from '@mantine/core'
+import { Paper, Text, Group, SimpleGrid, Stack, Tooltip, ScrollArea } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
 import { motion } from 'framer-motion'
 import {
@@ -127,6 +127,35 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
     const delta = recentAvg - priorAvg
     return { recentAvg, priorAvg, delta }
   }, [dailyVolume])
+
+  const heatmapRef = useRef<HTMLDivElement>(null)
+
+  const dayHourData = useMemo(() => {
+    const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const map = new Map<string, { total: number; abandoned: number }>()
+    for (const r of records) {
+      const d = parseDate(r.initiationTimestamp)
+      if (!d) continue
+      const dow = (d.getDay() + 6) % 7
+      const hour = d.getHours()
+      const key = `${dow}-${hour}`
+      const cell = map.get(key) || { total: 0, abandoned: 0 }
+      cell.total++
+      if (!r.connectedToAgentTimestamp) cell.abandoned++
+      map.set(key, cell)
+    }
+    const maxTotal = Math.max(...Array.from(map.values()).map(v => v.total), 1)
+    const cells: { dow: number; hour: number; total: number; abandoned: number; abandonRate: number; intensity: number }[] = []
+    for (let dow = 0; dow < 7; dow++) {
+      for (let hour = 0; hour < 24; hour++) {
+        const cell = map.get(`${dow}-${hour}`) || { total: 0, abandoned: 0 }
+        const abandonRate = cell.total > 0 ? (cell.abandoned / cell.total) * 100 : 0
+        const intensity = cell.total / maxTotal
+        cells.push({ dow, hour, total: cell.total, abandoned: cell.abandoned, abandonRate, intensity })
+      }
+    }
+    return { cells, maxTotal, DAY_NAMES }
+  }, [records])
 
   if (records.length === 0) {
     return (
@@ -260,6 +289,86 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
               </div>
             </Paper>
           </SimpleGrid>
+
+          <Paper p="md" radius="md" withBorder>
+            <Group justify="space-between" mb="xs">
+              <Group gap="xs">
+                <Text fw={600} size="sm">Volume by Hour & Day</Text>
+                <Tooltip label="Contact volume by day and hour. Cell color = volume intensity. Red text = abandonment rate ≥ 25%." multiline w={280} withArrow>
+                  <IconInfoCircle size={14} color="var(--mantine-color-dimmed)" style={{ cursor: "help" }} />
+                </Tooltip>
+              </Group>
+              <ChartExportButton targetRef={heatmapRef} filename="volume-heatmap" />
+            </Group>
+            <div ref={heatmapRef}>
+              <ScrollArea>
+                <div style={{ minWidth: 820 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: `48px repeat(24, 1fr)`, gap: 0 }}>
+                    <div />
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <div key={h} style={{ textAlign: "center", fontSize: 10, color: "var(--mantine-color-dimmed)", padding: "2px 0" }}>
+                        {h}
+                      </div>
+                    ))}
+                  </div>
+                  {dayHourData.DAY_NAMES.map((day, dow) => (
+                    <div key={dow} style={{ display: "grid", gridTemplateColumns: `48px repeat(24, 1fr)`, gap: 0 }}>
+                      <div style={{ fontSize: 11, color: "var(--mantine-color-dimmed)", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 6 }}>
+                        {day}
+                      </div>
+                      {Array.from({ length: 24 }, (_, hour) => {
+                        const cell = dayHourData.cells.find(c => c.dow === dow && c.hour === hour)
+                        if (!cell || cell.total === 0) {
+                          return (
+                            <div key={hour} style={{
+                              background: "var(--mantine-color-dark-8)",
+                              height: 28,
+                              border: "1px solid var(--mantine-color-dark-6)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 9,
+                              color: "var(--mantine-color-dimmed)",
+                            }}>
+                              —
+                            </div>
+                          )
+                        }
+                        const blueShade = Math.min(Math.ceil(cell.intensity * 8), 8)
+                        const bgColor = `var(--mantine-color-blue-${blueShade})`
+                        const textColor = blueShade >= 5 ? "var(--mantine-color-white)" : "var(--mantine-color-text)"
+                        const isHighAbandon = cell.abandonRate >= 25
+                        return (
+                          <Tooltip
+                            key={hour}
+                            label={`${day} ${hour}:00 — ${cell.total} contacts, ${cell.abandonRate.toFixed(0)}% abandoned`}
+                            withArrow
+                            multiline
+                            w={200}
+                          >
+                            <div style={{
+                              background: bgColor,
+                              height: 28,
+                              border: "1px solid var(--mantine-color-dark-6)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 9,
+                              fontWeight: 600,
+                              color: isHighAbandon ? "var(--mantine-color-red-4)" : textColor,
+                              cursor: "default",
+                            }}>
+                              {cell.total}
+                            </div>
+                          </Tooltip>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          </Paper>
         </Stack>
       </Paper>
     </motion.div>

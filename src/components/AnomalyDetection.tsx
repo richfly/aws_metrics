@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Paper, Text, Group, Stack, Badge, SimpleGrid, Modal, Divider, ThemeIcon } from '@mantine/core'
-import { IconAlertTriangle, IconClock, IconPhoneOff, IconUser, IconChartBar, IconRefresh } from '@tabler/icons-react'
+import { IconAlertTriangle, IconClock, IconPhoneOff, IconUser, IconChartBar, IconRefresh, IconAlertHexagon } from '@tabler/icons-react'
 import { motion } from 'framer-motion'
 import { ContactRecord } from '../types'
 import { detectAnomalies, type AnomalyItem } from '../utils/anomalyDetector'
@@ -15,6 +15,7 @@ const CATEGORY_CONFIG: Record<string, { icon: typeof IconAlertTriangle; color: s
   'agent': { icon: IconUser, color: 'violet', label: 'Agent Behavior' },
   'volume': { icon: IconChartBar, color: 'blue', label: 'Volume' },
   'repeat': { icon: IconRefresh, color: 'teal', label: 'Repeat Contacts' },
+  'data-quality': { icon: IconAlertHexagon, color: 'grape', label: 'Data Quality' },
 }
 
 function severityColor(severity: number): string {
