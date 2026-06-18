@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from 'react'
+import { useMemo, useState, useRef, useDeferredValue } from 'react'
 import {
   Paper,
   Text,
@@ -87,10 +87,11 @@ export function AgentPerformance({ records }: AgentPerformanceProps) {
   }
 
   const agentMetrics = useMemo(() => calculateAgentMetrics(records), [records])
+  const deferredAgentMetrics = useDeferredValue(agentMetrics)
   const overall = useMemo(() => calculateOverallSla(records), [records])
 
   const sorted = useMemo(() => {
-    const out = [...agentMetrics]
+    const out = [...deferredAgentMetrics]
     out.sort((a, b) => {
       const av = a[sortKey]
       const bv = b[sortKey]
@@ -103,29 +104,29 @@ export function AgentPerformance({ records }: AgentPerformanceProps) {
       return sortDir === "asc" ? cmp : -cmp
     })
     return out
-  }, [agentMetrics, sortKey, sortDir])
+  }, [deferredAgentMetrics, sortKey, sortDir])
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
   const pageStart = (page - 1) * PAGE_SIZE
   const pageRows = sorted.slice(pageStart, pageStart + PAGE_SIZE)
 
   const teamAvgConnect = useMemo(() => {
-    if (agentMetrics.length === 0) return 0
-    const all = agentMetrics.flatMap((a) => a.avgConnectSec > 0 ? [a.avgConnectSec] : [])
+    if (deferredAgentMetrics.length === 0) return 0
+    const all = deferredAgentMetrics.flatMap((a) => a.avgConnectSec > 0 ? [a.avgConnectSec] : [])
     return all.length > 0 ? all.reduce((s, x) => s + x, 0) / all.length : 0
-  }, [agentMetrics])
+  }, [deferredAgentMetrics])
 
   const teamAvgHandle = useMemo(() => {
-    if (agentMetrics.length === 0) return 0
-    const all = agentMetrics.flatMap((a) => a.avgHandleMin > 0 ? [a.avgHandleMin] : [])
+    if (deferredAgentMetrics.length === 0) return 0
+    const all = deferredAgentMetrics.flatMap((a) => a.avgHandleMin > 0 ? [a.avgHandleMin] : [])
     return all.length > 0 ? all.reduce((s, x) => s + x, 0) / all.length : 0
-  }, [agentMetrics])
+  }, [deferredAgentMetrics])
 
   const teamAvgSla = overall.pct60s
 
   const volumeLeaders = useMemo(
-    () => [...agentMetrics].sort((a, b) => b.total - a.total).slice(0, 10).reverse(),
-    [agentMetrics],
+    () => [...deferredAgentMetrics].sort((a, b) => b.total - a.total).slice(0, 10).reverse(),
+    [deferredAgentMetrics],
   )
 
   const handleSort = (key: SortKey) => {

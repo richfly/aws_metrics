@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useDeferredValue } from 'react'
 import { ContactRecord } from '../types'
 import { calculateMetrics, parseDate } from '../utils/metricsCalculator'
 
@@ -18,6 +18,7 @@ export interface FiltersState {
   clearFilters: () => void
   hasFilter: boolean
   filteredRecords: ContactRecord[]
+  deferredFilteredRecords: ContactRecord[]
   filterLabel: string
   metrics: ReturnType<typeof calculateMetrics> | null
 }
@@ -82,6 +83,8 @@ export function useFilters(joinedRecords: ContactRecord[]): FiltersState {
     initiationMethodFilter,
   ])
 
+  const deferredFilteredRecords = useDeferredValue(filteredRecords)
+
   const metrics = useMemo(
     () => (filteredRecords.length > 0 ? calculateMetrics(filteredRecords) : null),
     [filteredRecords],
@@ -142,6 +145,7 @@ export function useFilters(joinedRecords: ContactRecord[]): FiltersState {
     clearFilters,
     hasFilter,
     filteredRecords,
+    deferredFilteredRecords,
     filterLabel,
     metrics,
   }

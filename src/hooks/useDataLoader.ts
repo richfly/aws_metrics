@@ -82,7 +82,7 @@ export interface DataLoaderState {
   setSupabaseLoading: (loading: boolean) => void
 }
 
-const PAGE_SIZE = 1000
+const PAGE_SIZE = 2000
 
 export function useDataLoader(session: unknown): DataLoaderState {
   const [contactRecords, setContactRecords] = useState<ContactRecord[]>([])
@@ -113,7 +113,7 @@ export function useDataLoader(session: unknown): DataLoaderState {
     try {
       const contactsCountResult = await supabase
         .from("contacts")
-        .select("*", { count: "exact", head: true })
+        .select("*", { count: "estimated", head: true })
       if (!options?.silent) console.timeEnd("[fetch] contacts count query")
       const totalContacts = contactsCountResult.count ?? 0
       const totalPages = Math.ceil(totalContacts / PAGE_SIZE)

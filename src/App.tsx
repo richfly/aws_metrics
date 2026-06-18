@@ -427,7 +427,7 @@ export default function App() {
                 (data.contactRecords.length === 0 && data.supabaseLoading ? (
                   <ContentSkeleton showTable={false} />
                 ) : (
-                  <DashboardOverview records={filters.filteredRecords} />
+                  <DashboardOverview records={filters.deferredFilteredRecords} />
                 ))}
 
               {activePage === "wbr" &&
@@ -435,9 +435,9 @@ export default function App() {
                   <ContentSkeleton />
                 ) : (
                   <WbrPage
-                    records={filters.filteredRecords}
+                    records={filters.deferredFilteredRecords}
                     totalRecords={data.joinedRecords.length}
-                    filteredRecords={filters.filteredRecords.length}
+                    filteredRecords={filters.deferredFilteredRecords.length}
                     metrics={filters.metrics}
                     overallMetrics={overallMetrics}
                     filterLabel={filters.filterLabel}
@@ -451,9 +451,9 @@ export default function App() {
                   <ContentSkeleton showCharts={false} />
                 ) : (
                   <PhoneDescriptionBreakdown
-                    records={filters.filteredRecords}
+                    records={filters.deferredFilteredRecords}
                     totalRecords={data.joinedRecords.length}
-                    filteredRecords={filters.filteredRecords.length}
+                    filteredRecords={filters.deferredFilteredRecords.length}
                     filterLabel={filters.filterLabel}
                   />
                 ))}
@@ -462,28 +462,28 @@ export default function App() {
                 (data.contactRecords.length === 0 && data.supabaseLoading ? (
                   <ContentSkeleton />
                 ) : (
-                  <AgentPerformance records={filters.filteredRecords} />
+                  <AgentPerformance records={filters.deferredFilteredRecords} />
                 ))}
 
               {activePage === "sla" &&
                 (data.contactRecords.length === 0 && data.supabaseLoading ? (
                   <ContentSkeleton />
                 ) : (
-                  <SlaAnalysis records={filters.filteredRecords} />
+                  <SlaAnalysis records={filters.deferredFilteredRecords} />
                 ))}
 
               {activePage === "sla-inclusive" &&
                 (data.contactRecords.length === 0 && data.supabaseLoading ? (
                   <ContentSkeleton />
                 ) : (
-                  <SlaInclusiveAnalysis records={filters.filteredRecords} />
+                  <SlaInclusiveAnalysis records={filters.deferredFilteredRecords} />
                 ))}
 
               {activePage === "abandonment" &&
                 (data.contactRecords.length === 0 && data.supabaseLoading ? (
                   <ContentSkeleton />
                 ) : (
-                  <AbandonmentAnalysis records={filters.filteredRecords} />
+                  <AbandonmentAnalysis records={filters.deferredFilteredRecords} />
                 ))}
 
               {activePage === "usage" && <DocumentationPage />}
