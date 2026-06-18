@@ -76,16 +76,6 @@ export function AgentPerformance({ records }: AgentPerformanceProps) {
   const [selectedAgent, setSelectedAgent] = useState<AgentMetricsRow | null>(null)
   const distributionChartRef = useRef<HTMLDivElement>(null)
 
-  if (records.length === 0) {
-    return (
-      <Paper shadow="sm" radius="md" p="xl" className="glass-panel">
-        <Text c="dimmed" ta="center" py="xl">
-          No data available. Click "Load Data" in the header to upload contact records.
-        </Text>
-      </Paper>
-    )
-  }
-
   const agentMetrics = useMemo(() => calculateAgentMetrics(records), [records])
   const deferredAgentMetrics = useDeferredValue(agentMetrics)
   const overall = useMemo(() => calculateOverallSla(records), [records])
@@ -152,6 +142,16 @@ export function AgentPerformance({ records }: AgentPerformanceProps) {
           )}
         </Group>
       </Table.Th>
+    )
+  }
+
+  if (records.length === 0) {
+    return (
+      <Paper shadow="sm" radius="md" p="xl" className="glass-panel">
+        <Text c="dimmed" ta="center" py="xl">
+          No data available. Click "Load Data" in the header to upload contact records.
+        </Text>
+      </Paper>
     )
   }
 

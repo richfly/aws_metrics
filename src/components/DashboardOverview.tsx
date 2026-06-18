@@ -46,16 +46,6 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
   const volumeChartRef = useRef<HTMLDivElement>(null)
   const slaChartRef = useRef<HTMLDivElement>(null)
 
-  if (records.length === 0) {
-    return (
-      <Paper shadow="sm" radius="md" p="xl" className="glass-panel">
-        <Text c="dimmed" ta="center" py="xl">
-          No data available. Click "Load Data" in the header to upload contact records.
-        </Text>
-      </Paper>
-    )
-  }
-
   const total = records.length
 
   const overallSla = useMemo(() => calculateOverallSla(records), [records])
@@ -137,6 +127,16 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
     const delta = recentAvg - priorAvg
     return { recentAvg, priorAvg, delta }
   }, [dailyVolume])
+
+  if (records.length === 0) {
+    return (
+      <Paper shadow="sm" radius="md" p="xl" className="glass-panel">
+        <Text c="dimmed" ta="center" py="xl">
+          No data available. Click "Load Data" in the header to upload contact records.
+        </Text>
+      </Paper>
+    )
+  }
 
   return (
     <motion.div
@@ -232,7 +232,7 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
               <Group justify="space-between" mb="xs">
                 <Group gap="xs">
                   <Text fw={600} size="sm">Service Level Trend</Text>
-                <Tooltip label="% of contacts answered within 60 seconds per day, with 7-day rolling average. Drag the chart below to zoom." multiline w={280} withArrow>
+                  <Tooltip label="% of contacts answered within 60 seconds per day, with 7-day rolling average." multiline w={280} withArrow>
                   <IconInfoCircle size={14} color="var(--mantine-color-dimmed)" style={{ cursor: "help" }} />
                 </Tooltip>
                 </Group>
