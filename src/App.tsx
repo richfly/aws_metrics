@@ -36,6 +36,7 @@ import {
   IconLogout,
   IconHourglass,
   IconUser,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { ContactRecord } from "./types";
@@ -45,6 +46,7 @@ import { PhoneDescriptionBreakdown } from "./components/PhoneDescriptionBreakdow
 import { SlaAnalysis } from "./components/SlaAnalysis";
 import { SlaInclusiveAnalysis } from "./components/SlaInclusiveAnalysis";
 import { AbandonmentAnalysis } from "./components/AbandonmentAnalysis";
+import { AnomalyDetection } from "./components/AnomalyDetection";
 import { AgentPerformance } from "./components/AgentPerformance";
 import { DashboardOverview } from "./components/DashboardOverview";
 import { WbrPage } from "./components/WbrPage";
@@ -68,6 +70,7 @@ const NAV_LINKS = [
   { id: "sla" as const, label: "SLA", icon: IconChartLine },
   { id: "sla-inclusive" as const, label: "SLA (inclusive)", icon: IconHourglass },
   { id: "abandonment" as const, label: "Abandonment", icon: IconExclamationCircle },
+  { id: "anomalies" as const, label: "Anomalies", icon: IconAlertTriangle },
   { id: "usage" as const, label: "Documentation", icon: IconBook },
 ]
 
@@ -484,6 +487,13 @@ export default function App() {
                   <ContentSkeleton />
                 ) : (
                   <AbandonmentAnalysis records={filters.deferredFilteredRecords} />
+                ))}
+
+              {activePage === "anomalies" &&
+                (data.contactRecords.length === 0 && data.supabaseLoading ? (
+                  <ContentSkeleton />
+                ) : (
+                  <AnomalyDetection records={filters.deferredFilteredRecords} />
                 ))}
 
               {activePage === "usage" && <DocumentationPage />}
