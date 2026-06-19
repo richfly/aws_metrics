@@ -38,6 +38,11 @@ export function useFilters(joinedRecords: ContactRecord[]): FiltersState {
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null])
   const [dateMode, setDateMode] = useState<"single" | "range">("range")
 
+  const routingProfileSet = useMemo(() => new Set(routingProfileFilter), [routingProfileFilter])
+  const queueFilterSet = useMemo(() => new Set(queueFilter), [queueFilter])
+  const descriptionFilterSet = useMemo(() => new Set(descriptionFilter), [descriptionFilter])
+  const initiationMethodSet = useMemo(() => new Set(initiationMethodFilter), [initiationMethodFilter])
+
   const filteredRecords = useMemo(() => {
     let records = joinedRecords
     if (dateRange[0]) {
@@ -53,41 +58,33 @@ export function useFilters(joinedRecords: ContactRecord[]): FiltersState {
         return d && d < end
       })
     }
-    if (routingProfileFilter.length > 0) {
-      records = records.filter(
-        (r) => r.routingProfile && routingProfileFilter.includes(r.routingProfile),
-      )
+    if (routingProfileSet.size > 0) {
+      records = records.filter(r => r.routingProfile && routingProfileSet.has(r.routingProfile))
     }
-    if (queueFilter.length > 0) {
-      records = records.filter(
-        (r) => r.queue && queueFilter.includes(r.queue),
-      )
+    if (queueFilterSet.size > 0) {
+      records = records.filter(r => r.queue && queueFilterSet.has(r.queue))
     }
-    if (descriptionFilter.length > 0) {
-      records = records.filter(
-        (r) => r.phoneDescription && descriptionFilter.includes(r.phoneDescription),
-      )
+    if (descriptionFilterSet.size > 0) {
+      records = records.filter(r => r.phoneDescription && descriptionFilterSet.has(r.phoneDescription))
     }
-    if (initiationMethodFilter.length > 0) {
-      records = records.filter(
-        (r) => r.initiationMethod && initiationMethodFilter.includes(r.initiationMethod),
-      )
+    if (initiationMethodSet.size > 0) {
+      records = records.filter(r => r.initiationMethod && initiationMethodSet.has(r.initiationMethod))
     }
     return records
   }, [
     joinedRecords,
     dateRange,
-    routingProfileFilter,
-    queueFilter,
-    descriptionFilter,
-    initiationMethodFilter,
+    routingProfileSet,
+    queueFilterSet,
+    descriptionFilterSet,
+    initiationMethodSet,
   ])
 
   const deferredFilteredRecords = useDeferredValue(filteredRecords)
 
   const metrics = useMemo(
-    () => (filteredRecords.length > 0 ? calculateMetrics(filteredRecords) : null),
-    [filteredRecords],
+    () => (deferredFilteredRecords.length > 0 ? calculateMetrics(deferredFilteredRecords) : null),
+    [deferredFilteredRecords],
   )
 
   const clearFilters = useCallback(() => {

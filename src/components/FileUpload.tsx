@@ -8,10 +8,11 @@ interface FileUploadProps {
   label: string
   onFile: (text: string) => void
   loaded?: boolean
+  uploaded?: boolean
   subtext?: string
 }
 
-export function FileUpload({ label, onFile, loaded, subtext }: FileUploadProps) {
+export function FileUpload({ label, onFile, uploaded, subtext }: FileUploadProps) {
   const handleDrop = useCallback(
     (files: File[]) => {
       const file = files[0]
@@ -25,6 +26,8 @@ export function FileUpload({ label, onFile, loaded, subtext }: FileUploadProps) 
     },
     [onFile]
   )
+
+  const showChecked = !!uploaded
 
   return (
     <motion.div
@@ -41,10 +44,10 @@ export function FileUpload({ label, onFile, loaded, subtext }: FileUploadProps) 
           borderRadius: rem(24),
           borderStyle: 'dashed',
           borderWidth: 1.5,
-          borderColor: loaded
+          borderColor: showChecked
             ? 'var(--mantine-color-teal-5)'
             : 'var(--mantine-color-gray-4)',
-          background: loaded
+          background: showChecked
             ? 'var(--mantine-color-teal-0)'
             : undefined,
           cursor: 'pointer',
@@ -77,7 +80,7 @@ export function FileUpload({ label, onFile, loaded, subtext }: FileUploadProps) 
             </motion.div>
           </Dropzone.Reject>
           <Dropzone.Idle>
-            {loaded ? (
+            {showChecked ? (
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
@@ -97,11 +100,11 @@ export function FileUpload({ label, onFile, loaded, subtext }: FileUploadProps) 
           </Dropzone.Idle>
           <div>
             <Text size="lg" fw={600}>
-              {loaded ? `${label} Loaded` : label}
+              {showChecked ? `${label} Loaded` : label}
             </Text>
             <Text size="sm" c="dimmed">
-              {loaded
-                ? 'Drop a new file to replace'
+              {showChecked
+                ? 'Drop a new file to add more data'
                 : subtext ?? 'Drop CSV file here or click to browse'}
             </Text>
           </div>

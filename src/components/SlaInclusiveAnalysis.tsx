@@ -16,7 +16,6 @@ import {
 import { ContactRecord } from '../types'
 import {
   calculateInclusiveDailySla,
-  calculateInclusiveOverallSla,
   calculateInclusiveSlaByShift,
   calculateSlaComparison,
 } from '../utils/metricsCalculator'
@@ -52,8 +51,8 @@ export function SlaInclusiveAnalysis({ records }: SlaInclusiveAnalysisProps) {
   const [groupByWeek, setGroupByWeek] = useState(false)
   const inclusiveChartRef = useRef<HTMLDivElement>(null)
   const slaRows = useMemo(() => calculateInclusiveDailySla(records), [records])
-  const overall = useMemo(() => calculateInclusiveOverallSla(records), [records])
   const comparison = useMemo(() => calculateSlaComparison(records), [records])
+  const overall = comparison.inclusive
   const hasData = slaRows.length > 0
 
   const abandonedCount = useMemo(

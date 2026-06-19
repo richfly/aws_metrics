@@ -1,122 +1,126 @@
-import { useState, useMemo, useEffect } from 'react'
-import { Table, Text, UnstyledButton, Group, Pagination } from '@mantine/core'
-import { motion } from 'framer-motion'
-import { List, useListRef, type RowComponentProps } from 'react-window'
+import { useState, useMemo } from 'react'
+import {
+  Table, Text, UnstyledButton, Group, Pagination,
+  ScrollArea, MultiSelect, Badge, Select,
+} from '@mantine/core'
 import { IconArrowUp, IconArrowDown, IconArrowsSort } from '@tabler/icons-react'
+import { motion } from 'framer-motion'
 import { ContactRecord } from '../types'
+import { COLUMNS, type ColumnDef, DEFAULT_COLUMNS } from '../utils/tableColumns'
+import { formatSeconds, formatMinutes, formatTimestamp, formatShiftLabel } from '../utils/metricsCalculator'
 
-function fieldLabel(key: string): string {
-  return key
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
-    .replace(/^./, (s) => s.toUpperCase())
-}
+const PAGE_SIZES = [10, 25, 50, 100, 250] as const
 
 interface MetricsTableProps {
   records: ContactRecord[]
+  visibleColumns: string[]
+  onVisibleColumnsChange: (columns: string[]) => void
 }
 
 type SortDir = 'asc' | 'desc'
 
-const PAGE_SIZES = [10, 20, 50, 100] as const
-const ROW_HEIGHT = 36
-const HEADER_HEIGHT = 40
-const TABLE_HEIGHT = 520
+function renderCell(col: ColumnDef, record: ContactRecord): React.ReactNode {
+  const value = col.getValue(record)
 
-interface RowData {
-  records: ContactRecord[]
-  keys: (keyof ContactRecord)[]
+  if (value === null || value === undefined || value === '') {
+    return <Text size="sm" c="dimmed">-</Text>
+  }
+
+  if (col.id === 'shift') {
+    return <Text size="sm" fw={500}>{formatShiftLabel(value as string)}</Text>
+  }
+
+  switch (col.type) {
+    case 'timestamp':
+      return <Text size="sm">{formatTimestamp(value as string)}</Text>
+    case 'boolean':
+      return (
+        <Badge color={value ? 'green' : 'red'} variant="light" size="sm">
+          {value ? 'Yes' : 'No'}
+        </Badge>
+      )
+    case 'seconds':
+      return <Text size="sm">{formatSeconds(value as number)}</Text>
+    case 'minutes': {
+      const numVal = value as number
+      if (col.id === 'acwTime' && numVal > 30) {
+        return <Text size="sm" c="red" fw={700}>{'>'}30m</Text>
+      }
+      return <Text size="sm">{formatMinutes(numVal)}</Text>
+    }
+    case 'string':
+    default:
+      return <Text size="sm" lineClamp={1}>{String(value)}</Text>
+  }
 }
 
-export function MetricsTable({ records }: MetricsTableProps) {
-  const [sortKey, setSortKey] = useState<keyof ContactRecord | null>(null)
+export function MetricsTable({ records, visibleColumns, onVisibleColumnsChange }: MetricsTableProps) {
+  const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(25)
+
+  const columnDefs = useMemo(
+    () => COLUMNS.filter(c => visibleColumns.includes(c.id)),
+    [visibleColumns],
+  )
+
+  const columnMap = useMemo(
+    () => new Map(COLUMNS.map(c => [c.id, c])),
+    [],
+  )
 
   const sortedRecords = useMemo(() => {
     if (!sortKey) return records
+    const col = columnMap.get(sortKey)
+    if (!col) return records
     return [...records].sort((a, b) => {
-      const va = String(a[sortKey] ?? '')
-      const vb = String(b[sortKey] ?? '')
-      const cmp = va.localeCompare(vb, undefined, { numeric: true })
+      const va = col.getValue(a)
+      const vb = col.getValue(b)
+      if (va === null || va === undefined || va === '') return 1
+      if (vb === null || vb === undefined || vb === '') return -1
+      let cmp: number
+      if (typeof va === 'number' && typeof vb === 'number') {
+        cmp = va - vb
+      } else if (typeof va === 'boolean' && typeof vb === 'boolean') {
+        cmp = va === vb ? 0 : va ? -1 : 1
+      } else {
+        cmp = String(va).localeCompare(String(vb), undefined, { numeric: true })
+      }
       return sortDir === 'asc' ? cmp : -cmp
     })
-  }, [records, sortKey, sortDir])
+  }, [records, sortKey, sortDir, columnMap])
 
   const totalPages = Math.max(1, Math.ceil(sortedRecords.length / pageSize))
-  const paginatedRecords = useMemo(
+  const pagedRecords = useMemo(
     () => sortedRecords.slice((page - 1) * pageSize, page * pageSize),
     [sortedRecords, page, pageSize],
   )
 
-  const listRef = useListRef(null)
-
-  useEffect(() => {
-    listRef.current?.scrollToRow({ index: 0 })
-  }, [page, sortKey, sortDir, pageSize, listRef])
-
-  const handleSort = (key: keyof ContactRecord) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+  const handleSort = (colId: string) => {
+    if (sortKey === colId) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     } else {
-      setSortKey(key)
+      setSortKey(colId)
       setSortDir('asc')
     }
     setPage(1)
   }
 
+  const multiSelectData = useMemo(() => {
+    const groups = new Map<string, { value: string; label: string }[]>()
+    for (const c of COLUMNS) {
+      let items = groups.get(c.group)
+      if (!items) { items = []; groups.set(c.group, items) }
+      items.push({ value: c.id, label: c.label })
+    }
+    return Array.from(groups, ([group, items]) => ({ group, items }))
+  }, [])
+
   if (records.length === 0) return null
 
-  const keys = Object.keys(records[0]) as (keyof ContactRecord)[]
   const startRow = (page - 1) * pageSize + 1
   const endRow = Math.min(page * pageSize, sortedRecords.length)
-  const virtualListHeight = Math.max(
-    ROW_HEIGHT * 4,
-    Math.min(TABLE_HEIGHT, ROW_HEIGHT * paginatedRecords.length),
-  )
-  const rowData: RowData = { records: paginatedRecords, keys }
-
-  function Row({ index, style, ariaAttributes, records, keys }: RowComponentProps<RowData>) {
-    const record = records[index]
-    return (
-      <div
-        {...ariaAttributes}
-        style={{
-          ...style,
-          display: "table",
-          width: "100%",
-          tableLayout: "fixed",
-          borderBottom: "1px solid var(--mantine-color-default-border)",
-        }}
-      >
-        {keys.map((key, colIdx) => (
-          <div
-            key={String(key)}
-            style={{
-              display: "table-cell",
-              padding: "0 12px",
-              lineHeight: `${ROW_HEIGHT}px`,
-              height: ROW_HEIGHT,
-              verticalAlign: "middle",
-              fontSize: 14,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              background:
-                colIdx === 0
-                  ? "var(--mantine-color-body)"
-                  : index % 2 === 0
-                  ? "var(--mantine-color-default-hover)"
-                  : "transparent",
-            }}
-          >
-            {String(record[key] ?? "")}
-          </div>
-        ))}
-      </div>
-    )
-  }
 
   return (
     <motion.div
@@ -124,47 +128,32 @@ export function MetricsTable({ records }: MetricsTableProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: 0.15 }}
     >
-      <div
-        style={{
-          border: "1px solid var(--mantine-color-default-border)",
-          borderRadius: "var(--mantine-radius-md)",
-          overflow: "hidden",
-        }}
-      >
-        <Table
-          highlightOnHover
-          withRowBorders={false}
-          style={{ tableLayout: "fixed", width: "100%" }}
-        >
-          <Table.Thead style={{ display: "table", width: "100%", tableLayout: "fixed" }}>
+      <MultiSelect
+        label="Columns"
+        data={multiSelectData}
+        value={visibleColumns}
+        onChange={onVisibleColumnsChange}
+        searchable
+        hidePickedOptions
+        maxValues={50}
+        mb="sm"
+      />
+
+      <ScrollArea h={600}>
+        <Table stickyHeader highlightOnHover withRowBorders={false}>
+          <Table.Thead>
             <Table.Tr>
-              {keys.map((key) => {
-                const isSorted = sortKey === key
+              {columnDefs.map(col => {
+                const isSorted = sortKey === col.id
                 return (
-                  <Table.Th
-                    key={String(key)}
-                    style={{
-                      background: "var(--mantine-color-body)",
-                      height: HEADER_HEIGHT,
-                      padding: 0,
-                    }}
-                  >
-                    <UnstyledButton
-                      onClick={() => handleSort(key)}
-                      style={{ width: "100%", height: "100%", padding: "0 12px" }}
-                    >
-                      <Group gap={4} wrap="nowrap" justify="space-between">
-                        <Text size="sm" fw={600}>
-                          {fieldLabel(String(key))}
-                        </Text>
+                  <Table.Th key={col.id}>
+                    <UnstyledButton onClick={() => handleSort(col.id)}>
+                      <Group gap={4} wrap="nowrap">
+                        <Text size="xs" fw={600}>{col.label}</Text>
                         {isSorted ? (
-                          sortDir === "asc" ? (
-                            <IconArrowUp size={12} style={{ flexShrink: 0 }} />
-                          ) : (
-                            <IconArrowDown size={12} style={{ flexShrink: 0 }} />
-                          )
+                          sortDir === 'asc' ? <IconArrowUp size={12} /> : <IconArrowDown size={12} />
                         ) : (
-                          <IconArrowsSort size={12} style={{ flexShrink: 0, opacity: 0.3 }} />
+                          <IconArrowsSort size={12} style={{ opacity: 0.3 }} />
                         )}
                       </Group>
                     </UnstyledButton>
@@ -173,68 +162,45 @@ export function MetricsTable({ records }: MetricsTableProps) {
               })}
             </Table.Tr>
           </Table.Thead>
+          <Table.Tbody>
+            {pagedRecords.map(record => (
+              <Table.Tr key={record.contactId}>
+                {columnDefs.map(col => (
+                  <Table.Td key={col.id}>
+                    {renderCell(col, record)}
+                  </Table.Td>
+                ))}
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
         </Table>
-
-        {paginatedRecords.length === 0 ? (
-          <Text c="dimmed" ta="center" py="xl" size="sm">
-            No records on this page.
-          </Text>
-        ) : (
-          <List
-            listRef={listRef}
-            rowCount={paginatedRecords.length}
-            rowHeight={ROW_HEIGHT}
-            rowComponent={Row}
-            rowProps={rowData}
-            defaultHeight={virtualListHeight}
-            overscanCount={4}
-            style={{ scrollbarWidth: "thin" }}
-          />
-        )}
-      </div>
+      </ScrollArea>
 
       <Group justify="space-between" mt="sm">
         <Group gap="xs">
           <Text size="xs" c="dimmed">
-            {startRow}–{endRow} of {sortedRecords.length.toLocaleString()}
+            {startRow}\u2013{endRow} of {sortedRecords.length.toLocaleString()}
           </Text>
           {sortKey && (
             <Text
               component="span"
               size="xs"
               c="blue"
-              style={{ cursor: "pointer" }}
-              onClick={() => {
-                setSortKey(null)
-                setPage(1)
-              }}
+              style={{ cursor: 'pointer' }}
+              onClick={() => { setSortKey(null); setPage(1) }}
             >
               clear sort
             </Text>
           )}
         </Group>
         <Group gap="xs">
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value))
-              setPage(1)
-            }}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "var(--mantine-color-dimmed)",
-              fontSize: 12,
-              cursor: "pointer",
-              outline: "none",
-            }}
-          >
-            {PAGE_SIZES.map((s) => (
-              <option key={s} value={s}>
-                {s} / page
-              </option>
-            ))}
-          </select>
+          <Select
+            value={String(pageSize)}
+            onChange={(v) => { setPageSize(Number(v)); setPage(1) }}
+            data={PAGE_SIZES.map(s => ({ value: String(s), label: `${s} / page` }))}
+            size="xs"
+            w={110}
+          />
           <Pagination
             total={totalPages}
             value={page}

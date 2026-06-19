@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Stack, Alert, Text, Group, Paper } from '@mantine/core'
 import { motion } from 'framer-motion'
 import { ContactRecord, DetailedMetrics } from '../types'
@@ -6,6 +7,7 @@ import { ExportToolbar } from './ExportToolbar'
 import { BigNumberCard } from './BigNumberCard'
 import { MetricsSummary } from './MetricsSummary'
 import { MetricsTable } from './MetricsTable'
+import { DEFAULT_COLUMNS } from '../utils/tableColumns'
 
 interface WbrPageProps {
   records: ContactRecord[]
@@ -35,6 +37,8 @@ export function WbrPage({
   missingDescriptionCount,
   contactRecordsLength,
 }: WbrPageProps) {
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(DEFAULT_COLUMNS)
+
   if (totalRecords === 0) {
     return (
       <Paper shadow="sm" radius="md" p="xl" className="glass-panel">
@@ -66,6 +70,7 @@ export function WbrPage({
               totalRecords={totalRecords}
               filteredRecords={filteredRecords}
               filterLabel={filterLabel}
+              visibleColumns={visibleColumns}
             />
           )}
 
@@ -109,7 +114,7 @@ export function WbrPage({
             />
           )}
 
-          {records.length > 0 && <MetricsTable records={records} />}
+          {records.length > 0 && <MetricsTable records={records} visibleColumns={visibleColumns} onVisibleColumnsChange={setVisibleColumns} />}
 
           {missingDescriptionCount > 0 && (
             <motion.div

@@ -26,10 +26,14 @@ export function DataLoaderModal({
   contactCount,
 }: DataLoaderModalProps) {
   const [step, setStep] = useState(0)
+  const [phoneUploaded, setPhoneUploaded] = useState(false)
+  const [contactsUploaded, setContactsUploaded] = useState(false)
   const bothLoaded = phoneLoaded && contactsLoaded
 
   const handleClose = () => {
     setStep(0)
+    setPhoneUploaded(false)
+    setContactsUploaded(false)
     onClose()
   }
 
@@ -79,8 +83,9 @@ export function DataLoaderModal({
           <Paper bg="transparent" py="md">
             <FileUpload
               label="Phone Numbers"
-              onFile={onPhonesUpload}
+              onFile={(text) => { onPhonesUpload(text); setPhoneUploaded(true) }}
               loaded={phoneLoaded}
+              uploaded={phoneUploaded}
               subtext="Drop phone numbers CSV"
             />
             {phoneLoaded && (
@@ -105,8 +110,9 @@ export function DataLoaderModal({
           <Paper bg="transparent" py="md">
             <FileUpload
               label="Contact Search Results"
-              onFile={onContactsUpload}
+              onFile={(text) => { onContactsUpload(text); setContactsUploaded(true) }}
               loaded={contactsLoaded}
+              uploaded={contactsUploaded}
               subtext="Drop the main contact data CSV"
             />
             {contactsLoaded && (

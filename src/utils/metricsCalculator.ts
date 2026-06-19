@@ -1,9 +1,28 @@
 import { ContactRecord, MetricStats, DetailedMetrics } from '../types'
 
+const dateCache = new Map<string, Date | null>()
+const MAX_CACHE_SIZE = 50000
+
+export function clearDateCache(): void {
+  dateCache.clear()
+}
+
 export function parseDate(str: string): Date | null {
   if (!str || str.trim() === '') return null
+  if (dateCache.size > MAX_CACHE_SIZE) dateCache.clear()
+  const cached = dateCache.get(str)
+  if (cached !== undefined) return cached
   const d = new Date(str)
-  return isNaN(d.getTime()) ? null : d
+  const result = isNaN(d.getTime()) ? null : d
+  dateCache.set(str, result)
+  return result
+}
+
+export function localDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 export function minutesDiff(start: string, end: string): number | null {
@@ -254,26 +273,7 @@ function weekStartStr(d: Date): string {
   const diff = d.getDate() - day + (day === 0 ? -6 : 1)
   const monday = new Date(d)
   monday.setDate(diff)
-  return monday.toISOString().slice(0, 10)
-}
-
-export interface DailySlaRow {
-  date: string
-  weekStart: string
-  shift: string
-  total: number
-  below20s: number
-  below60s: number
-  below120s: number
-  pct20s: number
-  pct60s: number
-  pct120s: number
-  qBelow20s: number
-  qBelow60s: number
-  qBelow120s: number
-  qPct20s: number
-  qPct60s: number
-  qPct120s: number
+  return localDateStr(monday)
 }
 
 export interface OverallSlaStats {
@@ -312,12 +312,14 @@ function emptyCounters(): SlaCounters {
 }
 
 function bumpThresholds(c: SlaCounters, waitSec: number): void {
+  if (waitSec < 0) return
   if (waitSec <= 120) c.below120s++
   if (waitSec <= 60) c.below60s++
   if (waitSec <= 20) c.below20s++
 }
 
 function bumpQueue(c: SlaCounters, qSec: number): void {
+  if (qSec < 0) return
   if (qSec <= 120) c.qBelow120s++
   if (qSec <= 60) c.qBelow60s++
   if (qSec <= 20) c.qBelow20s++
@@ -403,7 +405,7 @@ function computeSlaDaily(records: ContactRecord[], waitFn: (r: ContactRecord) =>
     if (!d) continue
     const waitSec = waitFn(r)
     if (waitSec === null) continue
-    const dateStr = d.toISOString().slice(0, 10)
+    const dateStr = localDateStr(d)
     const shift = getShift(d.getHours())
     const key = `${dateStr}|${shift}`
     let g = groups.get(key)
@@ -461,7 +463,7 @@ export function calculateSlaByShift(records: ContactRecord[]): ShiftSlaRow[] {
   return computeSlaByShift(records, standardWait)
 }
 
-function secondsDiff(start: string, end: string): number | null {
+export function secondsDiff(start: string, end: string): number | null {
   const d1 = parseDate(start)
   const d2 = parseDate(end)
   if (!d1 || !d2) return null
@@ -498,4 +500,50 @@ export function calculateSlaComparison(records: ContactRecord[]): InclusiveSlaCo
   const abandoned = records.filter((r) => !r.connectedToAgentTimestamp).length
   const abandonedSharePct = records.length > 0 ? (abandoned / records.length) * 100 : 0
   return { standard, inclusive, abandoned, abandonedSharePct }
+}
+
+export function formatSeconds(s: number | null | undefined): string {
+  if (s === null || s === undefined) return '-'
+  if (s < 0) return '-'
+  if (s === 0) return '0s'
+  if (s < 60) return `${Math.round(s)}s`
+  const m = Math.floor(s / 60)
+  const sec = Math.round(s % 60)
+  if (m >= 60) {
+    const h = Math.floor(m / 60)
+    const rm = m % 60
+    return rm === 0 ? `${h}h` : `${h}h ${rm}m`
+  }
+  return sec === 0 ? `${m}m` : `${m}m ${sec}s`
+}
+
+export function formatMinutes(m: number | null | undefined): string {
+  if (m === null || m === undefined) return '-'
+  if (m < 0) return '-'
+  if (m === 0) return '0s'
+  if (m < 1) return `${Math.round(m * 60)}s`
+  const mins = Math.floor(m)
+  const sec = Math.round((m - mins) * 60)
+  if (mins >= 60) {
+    const h = Math.floor(mins / 60)
+    const rm = mins % 60
+    return rm === 0 ? `${h}h` : `${h}h ${rm}m`
+  }
+  return sec === 0 ? `${mins}m` : `${mins}m ${sec}s`
+}
+
+export function formatTimestamp(iso: string | null | undefined): string {
+  if (!iso) return '-'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '-'
+  return d.toLocaleString()
+}
+
+export function formatShiftLabel(shift: string | null | undefined): string {
+  switch (shift) {
+    case '1st': return '1st (6a-2p)'
+    case '2nd': return '2nd (2p-10p)'
+    case '3rd': return '3rd (10p-6a)'
+    default: return shift ?? '-'
+  }
 }

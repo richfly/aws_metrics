@@ -1,5 +1,5 @@
 import { useMemo, useRef } from 'react'
-import { Paper, Text, Group, SimpleGrid, Stack, Tooltip, ScrollArea } from '@mantine/core'
+import { Paper, Text, Group, SimpleGrid, Stack, Tooltip, ScrollArea, useMantineColorScheme } from '@mantine/core'
 import { IconInfoCircle } from '@tabler/icons-react'
 import { motion } from 'framer-motion'
 import {
@@ -15,7 +15,7 @@ import {
   ComposedChart,
 } from 'recharts'
 import { ContactRecord } from '../types'
-import { calculateOverallSla, calculateDailySla, parseDate } from '../utils/metricsCalculator'
+import { calculateOverallSla, calculateDailySla, parseDate, localDateStr } from '../utils/metricsCalculator'
 import { ChartExportButton } from './ChartExportButton'
 
 interface DashboardOverviewProps {
@@ -43,6 +43,8 @@ function computeRollingAvg(data: { date: string; value: number }[], window = 7):
 }
 
 export function DashboardOverview({ records }: DashboardOverviewProps) {
+  const { colorScheme } = useMantineColorScheme()
+  const isDark = colorScheme === 'dark'
   const volumeChartRef = useRef<HTMLDivElement>(null)
   const slaChartRef = useRef<HTMLDivElement>(null)
 
@@ -76,7 +78,7 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
     for (const r of records) {
       const d = parseDate(r.initiationTimestamp)
       if (!d) continue
-      const dateStr = d.toISOString().slice(0, 10)
+      const dateStr = localDateStr(d)
       map.set(dateStr, (map.get(dateStr) || 0) + 1)
     }
     return Array.from(map.entries())
@@ -321,9 +323,9 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
                         if (!cell || cell.total === 0) {
                           return (
                             <div key={hour} style={{
-                              background: "var(--mantine-color-dark-8)",
+                              background: isDark ? "var(--mantine-color-dark-8)" : "var(--mantine-color-gray-1)",
                               height: 28,
-                              border: "1px solid var(--mantine-color-dark-6)",
+                              border: isDark ? "1px solid var(--mantine-color-dark-6)" : "1px solid var(--mantine-color-gray-3)",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
@@ -349,7 +351,7 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
                             <div style={{
                               background: bgColor,
                               height: 28,
-                              border: "1px solid var(--mantine-color-dark-6)",
+                              border: isDark ? "1px solid var(--mantine-color-dark-6)" : "1px solid var(--mantine-color-gray-3)",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",

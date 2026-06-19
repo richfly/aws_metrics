@@ -26,7 +26,7 @@ import {
   ReferenceLine,
 } from 'recharts'
 import { ContactRecord } from '../types'
-import { calculateAgentMetrics, calculateOverallSla, parseDate, AgentMetricsRow } from '../utils/metricsCalculator'
+import { calculateAgentMetrics, calculateOverallSla, parseDate, localDateStr, AgentMetricsRow } from '../utils/metricsCalculator'
 import { ChartExportButton } from './ChartExportButton'
 
 interface AgentPerformanceProps {
@@ -407,7 +407,7 @@ function AgentDetailModal({
     for (const r of agentRecords) {
       const d = parseDate(r.initiationTimestamp)
       if (!d) continue
-      const dateStr = d.toISOString().slice(0, 10)
+      const dateStr = localDateStr(d)
       map.set(dateStr, (map.get(dateStr) || 0) + 1)
     }
     return Array.from(map.entries())

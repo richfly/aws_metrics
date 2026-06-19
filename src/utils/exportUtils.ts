@@ -1,4 +1,5 @@
 import { ContactRecord, DetailedMetrics } from '../types'
+import { ColumnDef } from './tableColumns'
 
 export function copyToClipboard(text: string): Promise<void> {
   return navigator.clipboard.writeText(text)
@@ -83,4 +84,51 @@ export function formatSummaryText(
   }
 
   return lines.join('\n')
+}
+
+export function downloadColumnCsv(
+  records: ContactRecord[],
+  columns: ColumnDef[],
+  filename: string,
+): void {
+  if (records.length === 0) return
+  const header = columns.map(c =>
+    c.type === 'seconds' ? `${c.label} (s)`
+    : c.type === 'minutes' ? `${c.label} (min)`
+    : c.label
+  ).join(',')
+  const rows = records.map(r =>
+    columns.map(c => {
+      const v = c.getValue(r)
+      if (v === null || v === undefined) return ''
+      const str = typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v)
+      return str.includes(',') || str.includes('"') || str.includes('\n')
+        ? `"${str.replace(/"/g, '""')}"`
+        : str
+    }).join(',')
+  )
+  const csv = [header, ...rows].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export function columnRowsToTsv(
+  records: ContactRecord[],
+  columns: ColumnDef[],
+): string {
+  if (records.length === 0) return ''
+  const header = columns.map(c => c.label).join('\t')
+  const rows = records.map(r =>
+    columns.map(c => {
+      const v = c.getValue(r)
+      if (v === null || v === undefined) return ''
+      return typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v)
+    }).join('\t')
+  )
+  return [header, ...rows].join('\n')
 }

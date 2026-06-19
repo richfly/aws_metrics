@@ -14,7 +14,7 @@ import {
   ComposedChart,
 } from 'recharts'
 import { ContactRecord } from '../types'
-import { parseDate, getShift } from '../utils/metricsCalculator'
+import { parseDate, getShift, localDateStr } from '../utils/metricsCalculator'
 import { ChartExportButton } from './ChartExportButton'
 
 interface AbandonmentAnalysisProps {
@@ -99,7 +99,7 @@ export function AbandonmentAnalysis({ records }: AbandonmentAnalysisProps) {
     for (const r of records) {
       const d = parseDate(r.initiationTimestamp)
       if (!d) continue
-      const dateStr = d.toISOString().slice(0, 10)
+      const dateStr = localDateStr(d)
       let g = map.get(dateStr)
       if (!g) {
         g = { answered: 0, abandoned: 0 }

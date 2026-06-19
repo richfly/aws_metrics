@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { ContactRecord, PhoneRecord } from '../types'
 import { joinData } from '../utils/dataJoiner'
+import { clearDateCache } from '../utils/metricsCalculator'
 
 const CONTACT_FIELDS: [keyof ContactRecord, string][] = [
   ["contactId", "contact_id"],
@@ -136,22 +137,18 @@ export function useDataLoader(session: unknown): DataLoaderState {
         const results = await Promise.all(pagePromises)
         if (!options?.silent) console.timeEnd("[fetch] contacts pages (parallel)")
         const all: Record<string, unknown>[] = []
-        let firstBatchApplied = false
+        const allMapped: ContactRecord[] = []
         for (const { data, error } of results) {
           if (error) throw error
           if (!data || data.length === 0) continue
           all.push(...(data as Record<string, unknown>[]))
-          const mappedBatch = data.map(
+          allMapped.push(...data.map(
             (r) => toCamel(r, CONTACT_FIELDS) as unknown as ContactRecord,
-          )
-          if (!firstBatchApplied) {
-            setContactRecords(mappedBatch)
-            firstBatchApplied = true
-          } else {
-            setContactRecords((prev) => [...prev, ...mappedBatch])
-          }
+          ))
         }
+        setContactRecords(allMapped)
         setLoadingProgress({ loaded: all.length, total: totalContacts })
+        clearDateCache()
         return all
       }
 
@@ -262,7 +259,10 @@ export function useDataLoader(session: unknown): DataLoaderState {
     }
   }, [session, fetchFromSupabase])
 
-  const joinedRecords = contactRecords.length > 0 ? joinData(contactRecords, phoneRecords) : []
+  const joinedRecords = useMemo(
+    () => contactRecords.length > 0 ? joinData(contactRecords, phoneRecords) : [],
+    [contactRecords, phoneRecords]
+  )
 
   return {
     contactRecords,

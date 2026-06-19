@@ -1,4 +1,5 @@
 import { ContactRecord } from '../types'
+import { parseDate, localDateStr } from './metricsCalculator'
 
 export interface AnomalyItem {
   id: string
@@ -15,12 +16,6 @@ export interface AnomalyItem {
   recommendation: string
 }
 
-function parseDate(str: string): Date | null {
-  if (!str || str.trim() === '') return null
-  const d = new Date(str)
-  return isNaN(d.getTime()) ? null : d
-}
-
 function getShift(hour: number): string {
   if (hour >= 6 && hour < 14) return '1st'
   if (hour >= 14 && hour < 22) return '2nd'
@@ -31,10 +26,11 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
   if (records.length === 0) return []
 
   const items: AnomalyItem[] = []
-  const now = new Date(Math.max(...records.map(r => {
+  const maxTs = records.reduce((max, r) => {
     const d = parseDate(r.initiationTimestamp)
-    return d ? d.getTime() : 0
-  })))
+    return d ? Math.max(max, d.getTime()) : max
+  }, 0)
+  const now = new Date(maxTs)
   const last7d = new Date(now.getTime() - 7 * 86400000)
   const last30d = new Date(now.getTime() - 30 * 86400000)
 
@@ -317,7 +313,7 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
         agent,
         forgottenCount: forgotten.length,
         totalAcw: g.acwMins.length,
-        maxAcwMin: Math.max(...g.acwMins),
+        maxAcwMin: g.acwMins.reduce((a, b) => Math.max(a, b), 0),
       })
     }
   }
@@ -366,7 +362,7 @@ export function detectAnomalies(records: ContactRecord[]): AnomalyItem[] {
   for (const r of records) {
     const d = parseDate(r.initiationTimestamp)
     if (!d) continue
-    const key = d.toISOString().slice(0, 10)
+    const key = localDateStr(d)
     dailyCounts[key] = (dailyCounts[key] || 0) + 1
   }
   const dailyValues = Object.values(dailyCounts)

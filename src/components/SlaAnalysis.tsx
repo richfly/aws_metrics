@@ -30,7 +30,7 @@ interface SlaAnalysisProps {
   records: ContactRecord[]
 }
 
-type SlaField = "pct20s" | "pct60s" | "pct120s" | "qPct20s" | "qPct60s" | "qPct120s"
+type SlaField = "pct20s" | "pct60s" | "pct120s"
 
 const CURSOR_STROKE = {
   strokeDasharray: "3 3",
@@ -44,16 +44,11 @@ const connectSpecs = [
   { key: "pct120s" as SlaField, title: "≤ 120 seconds", subtitle: "% of contacts connected to agent within 120 seconds" },
 ]
 
-const queueSpecs = [
-  { key: "qPct20s" as SlaField, title: "≤ 20 seconds", subtitle: "% answered within 20s from enqueue (excludes IVR)" },
-  { key: "qPct60s" as SlaField, title: "≤ 60 seconds", subtitle: "% answered within 60s from enqueue (excludes IVR)" },
-  { key: "qPct120s" as SlaField, title: "≤ 120 seconds", subtitle: "% answered within 120s from enqueue (excludes IVR)" },
-]
+
 
 export function SlaAnalysis({ records }: SlaAnalysisProps) {
   const [groupByWeek, setGroupByWeek] = useState(false)
   const connectChartRef = useRef<HTMLDivElement>(null)
-  const queueChartRef = useRef<HTMLDivElement>(null)
   const volumeChartRef = useRef<HTMLDivElement>(null)
   const slaRows = useMemo(() => calculateDailySla(records), [records])
   const overall = useMemo(() => calculateOverallSla(records), [records])
@@ -61,14 +56,6 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
 
   const connectChartData = useMemo(
     () => connectSpecs.map((spec) => ({
-      ...spec,
-      chartData: buildChartData(slaRows, spec.key, groupByWeek),
-    })),
-    [slaRows, groupByWeek],
-  )
-
-  const queueChartData = useMemo(
-    () => queueSpecs.map((spec) => ({
       ...spec,
       chartData: buildChartData(slaRows, spec.key, groupByWeek),
     })),
@@ -188,57 +175,6 @@ export function SlaAnalysis({ records }: SlaAnalysisProps) {
               <div ref={connectChartRef}>
                 <Stack gap="xl">
                   {connectChartData.map((spec) => (
-                    <div key={spec.key}>
-                      <Text fw={500} size="xs" mb={4}>{spec.title}</Text>
-                      <Text size="xs" c="dimmed" mb="xs">{spec.subtitle}</Text>
-                      <ResponsiveContainer width="100%" height={280}>
-                        <BarChart data={spec.chartData} margin={{ left: -8 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-5)" />
-                          <XAxis
-                            dataKey="date"
-                            tick={{ fontSize: 11 }}
-                            tickFormatter={(v: any) => formatDateLabel(String(v))}
-                          />
-                          <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}%`} />
-                          <RechartsTooltip
-                            cursor={CURSOR_STROKE}
-                            formatter={(value: any) => [`${Number(value).toFixed(1)}%`]}
-                            labelFormatter={labelFormatter}
-                          />
-                          <ReferenceLine y={90} stroke="var(--mantine-color-red-6)" strokeDasharray="6 3" label={{ value: "90%", position: "right", fontSize: 11 }} />
-                          <Legend
-                            formatter={(value: string) => (
-                              <span style={{ fontSize: 12 }}>{SHIFT_LABELS[value] || value}</span>
-                            )}
-                          />
-                          {SHIFTS.map((shift) => (
-                            <Bar
-                              key={shift}
-                              dataKey={shift}
-                              name={shift}
-                              fill={SHIFT_COLORS[shift]}
-                              radius={[4, 4, 0, 0]}
-                              maxBarSize={24}
-                            />
-                          ))}
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ))}
-                </Stack>
-              </div>
-            </Paper>
-
-            {/* Queue Time SLA */}
-            <Paper p="md" radius="md" withBorder>
-              <Group justify="space-between" mb="xs">
-                <Text fw={600} size="sm">Queue Time SLA</Text>
-                <ChartExportButton targetRef={queueChartRef} filename="queue-time-sla" />
-              </Group>
-              <Text size="xs" c="dimmed" mb="md">Enqueue timestamp → Connected to agent timestamp (excludes IVR time)</Text>
-              <div ref={queueChartRef}>
-                <Stack gap="xl">
-                  {queueChartData.map((spec) => (
                     <div key={spec.key}>
                       <Text fw={500} size="xs" mb={4}>{spec.title}</Text>
                       <Text size="xs" c="dimmed" mb="xs">{spec.subtitle}</Text>

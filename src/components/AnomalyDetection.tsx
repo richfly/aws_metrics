@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Paper, Text, Group, Stack, Badge, SimpleGrid, Modal, Divider, ThemeIcon } from '@mantine/core'
+import { Paper, Text, Group, Stack, Badge, SimpleGrid, Modal, Divider, ThemeIcon, useMantineColorScheme } from '@mantine/core'
 import { IconAlertTriangle, IconClock, IconPhoneOff, IconUser, IconChartBar, IconRefresh, IconAlertHexagon } from '@tabler/icons-react'
 import { motion } from 'framer-motion'
 import { ContactRecord } from '../types'
@@ -104,6 +104,8 @@ function AnomalyCard({ item, onClick }: { item: AnomalyItem; onClick: () => void
 }
 
 function AnomalyModal({ item, opened, onClose }: { item: AnomalyItem | null; opened: boolean; onClose: () => void }) {
+  const { colorScheme } = useMantineColorScheme()
+  const isDark = colorScheme === 'dark'
   if (!item) return null
   const config = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG['wait-time']
   const Icon = config.icon
@@ -135,7 +137,7 @@ function AnomalyModal({ item, opened, onClose }: { item: AnomalyItem | null; ope
       radius="md"
     >
       <Stack gap="md">
-        <Paper p="sm" radius="md" style={{ background: 'var(--mantine-color-dark-7)' }}>
+        <Paper p="sm" radius="md" style={{ background: isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-1)' }}>
           <Group justify="space-between" gap="xl">
             <div>
               <Text size="xs" c="dimmed" tt="uppercase" fw={500}>Entity</Text>
@@ -168,7 +170,7 @@ function AnomalyModal({ item, opened, onClose }: { item: AnomalyItem | null; ope
         </Text>
 
         <Divider label="Recommended action" labelPosition="left" />
-        <Paper p="md" radius="md" style={{ background: 'var(--mantine-color-dark-7)' }}>
+        <Paper p="md" radius="md" style={{ background: isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-1)' }}>
           <Text size="sm" fw={500}>
             {item.recommendation}
           </Text>
@@ -187,6 +189,8 @@ function AnomalyModal({ item, opened, onClose }: { item: AnomalyItem | null; ope
 }
 
 export function AnomalyDetection({ records }: AnomalyDetectionProps) {
+  const { colorScheme } = useMantineColorScheme()
+  const isDark = colorScheme === 'dark'
   const anomalies = useMemo(() => detectAnomalies(records), [records])
   const [selected, setSelected] = useState<AnomalyItem | null>(null)
 

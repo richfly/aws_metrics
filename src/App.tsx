@@ -40,7 +40,7 @@ import {
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { ContactRecord } from "./types";
-import { calculateMetrics } from "./utils/metricsCalculator";
+import { calculateMetrics, localDateStr, parseDate } from "./utils/metricsCalculator";
 import { DataLoaderModal } from "./components/DataLoaderModal";
 import { PhoneDescriptionBreakdown } from "./components/PhoneDescriptionBreakdown";
 import { SlaAnalysis } from "./components/SlaAnalysis";
@@ -124,8 +124,9 @@ export default function App() {
   const datesWithData = useMemo(() => {
     const set = new Set<string>()
     for (const r of data.joinedRecords) {
-      if (r.initiationTimestamp && r.initiationTimestamp.length >= 10) {
-        set.add(r.initiationTimestamp.slice(0, 10))
+      if (r.initiationTimestamp) {
+        const d = parseDate(r.initiationTimestamp)
+        if (d) set.add(localDateStr(d))
       }
     }
     return set
@@ -133,7 +134,7 @@ export default function App() {
 
   const renderDay = useCallback(
     (date: Date) => {
-      const dateStr = date.toISOString().slice(0, 10)
+      const dateStr = localDateStr(date)
       const hasData = datesWithData.has(dateStr)
       return (
         <div
