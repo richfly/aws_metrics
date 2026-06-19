@@ -14,6 +14,8 @@ import {
   IconHourglass,
   IconCloud,
   IconRefresh,
+  IconAlertTriangle,
+  IconAlertHexagon,
 } from "@tabler/icons-react";
 
 const sections = [
@@ -52,6 +54,11 @@ const sections = [
     title: "Shifts",
     body: "All SLA and abandonment charts split data by shift: 1st Shift (6:00–13:59), 2nd Shift (14:00–21:59), and 3rd Shift (22:00–5:59).",
   },
+  {
+    icon: IconAlertHexagon,
+    title: "Data Quality",
+    body: "After-Contact Work (ACW) times exceeding 30 minutes are classified as data quality issues — they almost always represent agents who left the CCP in ACW state and never closed it. These values are excluded from ACW averages in anomaly detection and agent comparisons. They are surfaced as 'Forgotten ACW State' anomalies on the Anomalies page so supervisors can close them and set up timeout policies.",
+  },
 ];
 
 const pages = [
@@ -73,6 +80,12 @@ const pages = [
           <li>
             <b>Service Level Trend chart</b> — ≤60s attainment per day with 90%
             target reference line
+          </li>
+          <li>
+            <b>Volume by Hour & Day heatmap</b> — 7×24 grid showing contact
+            volume intensity by day-of-week and hour. Cells with abandonment
+            rate ≥25% are highlighted in red. Hover any cell for exact count
+            and abandonment rate.
           </li>
         </Text>
       </>
@@ -116,36 +129,8 @@ const pages = [
     body: "Breaks down average Agent Connect Time, Handle Time, and ACW Time by phone description. Useful for identifying which phone lines perform best or worst.",
   },
   {
-    icon: IconUser,
-    title: "Agent",
-    body: (
-      <>
-        <Text size="sm">Per-agent performance for managers and team leads:</Text>
-        <Text size="sm" component="ul" mt={4}>
-          <li>
-            <b>Summary cards</b> — active agents, total contacts, team avg connect
-            time, team SLA ≤60s
-          </li>
-          <li>
-            <b>Sortable table</b> — every agent with contacts handled, avg connect / handle /
-            ACW times, SLA ≤20s / 60s / 120s, queue time SLA, and queues covered. Click any
-            column header to re-sort. Color-coded against team averages and SLA targets.
-          </li>
-          <li>
-            <b>Click any agent</b> to open a detail modal with their daily volume chart,
-            shift performance breakdown, and top queues
-          </li>
-          <li>
-            <b>Top 10 by volume</b> — horizontal bar chart at the bottom for at-a-glance
-            workload distribution
-          </li>
-        </Text>
-      </>
-    ),
-  },
-  {
     icon: IconChartLine,
-    title: "SLA Analysis",
+    title: "SLA",
     body: (
       <>
         <Text size="sm">
@@ -212,7 +197,7 @@ const pages = [
   },
   {
     icon: IconExclamationCircle,
-    title: "Abandonment Analysis",
+    title: "Abandonment",
     body: (
       <>
         <Text size="sm">
@@ -247,6 +232,86 @@ const pages = [
       </>
     ),
   },
+  {
+    icon: IconAlertTriangle,
+    title: "Anomalies",
+    body: (
+      <>
+        <Text size="sm">
+          Automated anomaly detection across 6 categories. All baselines use the
+          full dataset; anomalies flag recent deviations (last 7 or 30 days)
+          against those baselines:
+        </Text>
+        <Text size="sm" component="ul" mt={4}>
+          <li>
+            <b>Wait-Time</b> — SLA drops by queue or agent (e.g. &quot;Boeing
+            Queue SLA≤60s dropped 21 pts in last 7d&quot;). Flags any entity
+            where the recent SLA is ≥5 points below the all-time baseline.
+          </li>
+          <li>
+            <b>Abandonment</b> — queues with ≥15% abandonment rate. Also flags
+            recent increases of ≥3 pts vs all-time.
+          </li>
+          <li>
+            <b>Agent Behavior</b> — agents with ≥20% multi-attempt connection
+            rate; ACW z-scores ≥2σ (ACW values &gt;30 min excluded as data
+            quality issues).
+          </li>
+          <li>
+            <b>Repeat Contacts</b> — same customer phone number calling back
+            within 24 hours. Flagged when the overall rate is ≥5%.
+          </li>
+          <li>
+            <b>Volume</b> — daily contact count z-scores ≥2.5σ, indicating
+            unusual spikes or drops.
+          </li>
+          <li>
+            <b>Data Quality</b> — ACW records exceeding 30 minutes (forgotten
+            open states). Also flags individual agents with the longest ACW
+            values.
+          </li>
+        </Text>
+        <Text size="sm" mt={4}>
+          Each anomaly card is clickable for a detailed explanation of what it
+          means, why it matters, and a recommended action. Severity is rated
+          1–10 with Critical (7+), Warning (4–6), and Info (1–3) badges.
+        </Text>
+      </>
+    ),
+  },
+  {
+    icon: IconUser,
+    title: "Agent",
+    body: (
+      <>
+        <Text size="sm">Per-agent performance for managers and team leads:</Text>
+        <Text size="sm" component="ul" mt={4}>
+          <li>
+            <b>Summary cards</b> — active agents, total contacts, team avg connect
+            time, team SLA ≤60s
+          </li>
+          <li>
+            <b>Sortable table</b> — every agent with contacts handled, avg connect / handle /
+            ACW times, SLA ≤20s / 60s / 120s, queue time SLA, and queues covered. Click any
+            column header to re-sort. Color-coded against team averages and SLA targets.
+          </li>
+          <li>
+            <b>Click any agent</b> to open a detail modal with their daily volume chart,
+            shift performance breakdown, and top queues
+          </li>
+          <li>
+            <b>Top 10 by volume</b> — horizontal bar chart at the bottom for at-a-glance
+            workload distribution
+          </li>
+        </Text>
+        <Text size="sm" mt={4}>
+          Note: ACW times shown are actual agent performance. Values exceeding 30
+          minutes (likely forgotten open states) are excluded from anomaly
+          comparisons — see the Anomalies page for flagged agents.
+        </Text>
+      </>
+    ),
+  },
 ];
 
 const measures = [
@@ -261,8 +326,8 @@ const measures = [
     unit: "minutes",
   },
   {
-    label: "After ACW Time",
-    def: "Time spent in after-contact work. ACW = acwEndTimestamp − acwStartTimestamp.",
+    label: "After-Contact Work (ACW) Time",
+    def: "Time spent in after-contact work. ACW = acwEndTimestamp − acwStartTimestamp. Values exceeding 30 minutes are classified as data quality issues (forgotten open states) and excluded from agent ACW averages in anomaly detection. See the Data Quality section for details.",
     unit: "minutes",
   },
   {
@@ -284,6 +349,21 @@ const measures = [
     label: "Abandonment Rate",
     def: "Percentage of contacts that were initiated but never connected to an agent (empty connectedToAgentTimestamp).",
     unit: "%",
+  },
+  {
+    label: "Multi-Attempt Rate",
+    def: "Percentage of contacts where the agent connection required more than one attempt (agentConnectionAttempts > 1). High rates indicate the agent missed or declined the initial routing attempt, increasing customer wait time and wasting routing capacity.",
+    unit: "%",
+  },
+  {
+    label: "Repeat Contact Rate (24h)",
+    def: "Percentage of contacts from the same customer phone number calling again within 24 hours. An indicator of first-call resolution quality. Industry FCR benchmark is 70–75%, meaning 25–30% repeat contact is typical; rates above 40–50% suggest systemic issues.",
+    unit: "%",
+  },
+  {
+    label: "ACW Data Quality (Forgotten States)",
+    def: "ACW durations exceeding 30 minutes are flagged as likely forgotten open states — the agent left the CCP without closing the contact. These values inflate ACW averages and make agent comparisons unreliable. They are excluded from ACW z-score calculations in anomaly detection.",
+    unit: "count",
   },
 ];
 

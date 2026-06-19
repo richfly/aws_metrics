@@ -65,12 +65,12 @@ import "./index.css";
 const NAV_LINKS = [
   { id: "dashboard" as const, label: "Dashboard", icon: IconChartBar },
   { id: "wbr" as const, label: "WBR", icon: IconCalendar },
-  { id: "agent" as const, label: "Agent", icon: IconUser },
   { id: "phone-analysis" as const, label: "Phone Analysis", icon: IconPhone },
   { id: "sla" as const, label: "SLA", icon: IconChartLine },
   { id: "sla-inclusive" as const, label: "SLA (inclusive)", icon: IconHourglass },
   { id: "abandonment" as const, label: "Abandonment", icon: IconExclamationCircle },
   { id: "anomalies" as const, label: "Anomalies", icon: IconAlertTriangle },
+  { id: "agent" as const, label: "Agent", icon: IconUser },
   { id: "usage" as const, label: "Documentation", icon: IconBook },
 ]
 
