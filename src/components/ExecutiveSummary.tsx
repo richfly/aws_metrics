@@ -1,6 +1,7 @@
 import { Text, Paper } from '@mantine/core'
 import { motion } from 'framer-motion'
 import { DetailedMetrics } from '../types'
+import { formatMinutes } from '../utils/metricsCalculator'
 
 interface ExecutiveSummaryProps {
   totalRecords: number
@@ -49,17 +50,17 @@ export function ExecutiveSummary({
       ? 'With current filters'
       : `In ${filterLabel}`
 
-    sentence = `${prefix}, agents average ${primary!.toFixed(2)} min ${metricName} time`
+    sentence = `${prefix}, agents average ${formatMinutes(primary!)} ${metricName} time`
     if (dp !== null && Math.abs(dp) > 1) {
       const dir = dp < 0 ? 'faster' : 'slower'
-      sentence += ` \u2014 ${Math.abs(dp).toFixed(0)}% ${dir} than the overall ${overallAvg!.toFixed(2)} min average`
+      sentence += ` \u2014 ${Math.abs(dp).toFixed(0)}% ${dir} than the overall ${formatMinutes(overallAvg!)} average`
     }
     sentence += '.'
   } else {
     const parts: string[] = []
-    if (connectAvg !== null) parts.push(`${connectAvg.toFixed(2)} min connect time`)
-    if (handleAvg !== null) parts.push(`${handleAvg.toFixed(2)} min handle time`)
-    if (acwAvg !== null) parts.push(`${acwAvg.toFixed(2)} min after-call work`)
+    if (connectAvg !== null) parts.push(`${formatMinutes(connectAvg)} connect time`)
+    if (handleAvg !== null) parts.push(`${formatMinutes(handleAvg)} handle time`)
+    if (acwAvg !== null) parts.push(`${formatMinutes(acwAvg)} after-call work`)
 
     if (parts.length > 0) {
       const last = parts.pop()!

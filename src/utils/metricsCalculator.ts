@@ -505,31 +505,25 @@ export function calculateSlaComparison(records: ContactRecord[]): InclusiveSlaCo
 export function formatSeconds(s: number | null | undefined): string {
   if (s === null || s === undefined) return '-'
   if (s < 0) return '-'
-  if (s === 0) return '0s'
-  if (s < 60) return `${Math.round(s)}s`
-  const m = Math.floor(s / 60)
-  const sec = Math.round(s % 60)
-  if (m >= 60) {
-    const h = Math.floor(m / 60)
-    const rm = m % 60
-    return rm === 0 ? `${h}h` : `${h}h ${rm}m`
-  }
-  return sec === 0 ? `${m}m` : `${m}m ${sec}s`
+  const total = Math.round(s)
+  if (total === 0) return '0:00'
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const sec = total % 60
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+  return `${m}:${String(sec).padStart(2, '0')}`
 }
 
 export function formatMinutes(m: number | null | undefined): string {
   if (m === null || m === undefined) return '-'
   if (m < 0) return '-'
-  if (m === 0) return '0s'
-  if (m < 1) return `${Math.round(m * 60)}s`
-  const mins = Math.floor(m)
-  const sec = Math.round((m - mins) * 60)
-  if (mins >= 60) {
-    const h = Math.floor(mins / 60)
-    const rm = mins % 60
-    return rm === 0 ? `${h}h` : `${h}h ${rm}m`
-  }
-  return sec === 0 ? `${mins}m` : `${mins}m ${sec}s`
+  const totalSec = Math.round(m * 60)
+  if (totalSec === 0) return '0:00'
+  const h = Math.floor(totalSec / 3600)
+  const min = Math.floor((totalSec % 3600) / 60)
+  const sec = totalSec % 60
+  if (h > 0) return `${h}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+  return `${min}:${String(sec).padStart(2, '0')}`
 }
 
 export function formatTimestamp(iso: string | null | undefined): string {

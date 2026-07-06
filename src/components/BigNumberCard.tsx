@@ -3,6 +3,7 @@ import { Paper, Text, Group, ActionIcon } from '@mantine/core'
 import { motion } from 'framer-motion'
 import { IconCopy, IconCheck } from '@tabler/icons-react'
 import { MetricStats } from '../types'
+import { formatMinutes } from '../utils/metricsCalculator'
 import { copyToClipboard } from '../utils/exportUtils'
 
 interface BigNumberCardProps {
@@ -12,7 +13,7 @@ interface BigNumberCardProps {
   index?: number
 }
 
-function AnimatedNumber({ target, integer }: { target: number | null; integer?: boolean }) {
+function AnimatedNumber({ target, integer, time }: { target: number | null; integer?: boolean; time?: boolean }) {
   const [display, setDisplay] = useState(0)
 
   useEffect(() => {
@@ -37,6 +38,7 @@ function AnimatedNumber({ target, integer }: { target: number | null; integer?: 
   }, [target])
 
   if (target === null) return null
+  if (time) return <>{formatMinutes(display)}</>
   return <>{integer ? Math.round(display).toLocaleString() : display.toFixed(2)}</>
 }
 
@@ -49,10 +51,11 @@ export function BigNumberCard({
   const [copied, setCopied] = useState(false)
   const value = directValue ?? stats?.avg ?? null
   const isCounter = directValue !== undefined
+  const isTime = stats !== undefined
 
   const handleCopy = async () => {
     if (value === null) return
-    const text = isCounter ? String(Math.round(value)) : value.toFixed(2)
+    const text = isCounter ? String(Math.round(value)) : isTime ? formatMinutes(value) : value.toFixed(2)
     await copyToClipboard(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 1800)
@@ -95,9 +98,9 @@ export function BigNumberCard({
         )}
 
         <Group justify="center" mt={2}>
-          <Text className="card-number">
-            <AnimatedNumber target={value} integer={isCounter} />
-          </Text>
+            <Text className="card-number">
+              <AnimatedNumber target={value} integer={isCounter} time={isTime} />
+            </Text>
         </Group>
 
         <Text ta="center" size="xs" c="dimmed" tt="uppercase" fw={500} lh={1.4}>

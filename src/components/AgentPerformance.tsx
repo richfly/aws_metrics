@@ -26,7 +26,7 @@ import {
   ReferenceLine,
 } from 'recharts'
 import { ContactRecord } from '../types'
-import { calculateAgentMetrics, calculateOverallSla, parseDate, localDateStr, AgentMetricsRow } from '../utils/metricsCalculator'
+import { calculateAgentMetrics, calculateOverallSla, parseDate, localDateStr, formatSeconds, formatMinutes, AgentMetricsRow } from '../utils/metricsCalculator'
 import { ChartExportButton } from './ChartExportButton'
 
 interface AgentPerformanceProps {
@@ -54,14 +54,12 @@ function timeColor(valueSec: number, teamAvg: number): string {
 
 function fmtSec(s: number): string {
   if (s === 0) return "—"
-  if (s < 60) return `${s.toFixed(1)}s`
-  return `${(s / 60).toFixed(1)}m`
+  return formatSeconds(s)
 }
 
 function fmtMin(m: number): string {
   if (m === 0) return "—"
-  if (m < 1) return `${(m * 60).toFixed(0)}s`
-  return `${m.toFixed(1)}m`
+  return formatMinutes(m)
 }
 
 function formatDateLabel(dateStr: string): string {

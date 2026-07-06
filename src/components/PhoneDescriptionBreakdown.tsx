@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Paper, Text, Group, Divider } from '@mantine/core'
 import { motion } from 'framer-motion'
 import { ContactRecord } from '../types'
-import { calculateMetricsByPhoneDescription } from '../utils/metricsCalculator'
+import { calculateMetricsByPhoneDescription, formatMinutes } from '../utils/metricsCalculator'
 
 interface PhoneDescriptionBreakdownProps {
   records: ContactRecord[]
@@ -78,9 +78,9 @@ export function PhoneDescriptionBreakdown({
           <Group key={g.phoneDescription} px="xs" py={6}>
             <Text size="sm" fw={500} style={{ width: 200 }}>{g.phoneDescription}</Text>
             <Text size="sm" fw={600} ta="right" style={{ width: 64 }}>{g.count.toLocaleString()}</Text>
-            <Text size="sm" fw={600} ta="right" style={{ width: 100 }}>{g.avgConnectTime.toFixed(2)}</Text>
-            <Text size="sm" fw={600} ta="right" style={{ width: 100 }}>{g.avgHandleTime.toFixed(2)}</Text>
-            <Text size="sm" fw={600} ta="right" style={{ width: 100 }}>{g.avgAcwTime.toFixed(2)}</Text>
+            <Text size="sm" fw={600} ta="right" style={{ width: 100 }}>{formatMinutes(g.avgConnectTime)}</Text>
+            <Text size="sm" fw={600} ta="right" style={{ width: 100 }}>{formatMinutes(g.avgHandleTime)}</Text>
+            <Text size="sm" fw={600} ta="right" style={{ width: 100 }}>{formatMinutes(g.avgAcwTime)}</Text>
           </Group>
         ))}
       </Paper>

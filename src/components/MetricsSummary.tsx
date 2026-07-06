@@ -3,6 +3,7 @@ import { Paper, Text, Group, ActionIcon, Tooltip, Divider } from '@mantine/core'
 import { motion } from 'framer-motion'
 import { IconCopy, IconCheck } from '@tabler/icons-react'
 import { DetailedMetrics } from '../types'
+import { formatMinutes } from '../utils/metricsCalculator'
 import { copyToClipboard, formatSummaryText } from '../utils/exportUtils'
 
 interface MetricsSummaryProps {
@@ -79,10 +80,10 @@ export function MetricsSummary({ metrics, totalRecords, filteredRecords, filterL
             <Text size="sm" fw={500} style={{ width: 160 }}>{label}</Text>
             {stats ? (
               <>
-                <Text size="sm" fw={600} ta="right" style={{ width: 64 }}>{stats.avg.toFixed(2)}</Text>
-                <Text size="sm" c="dimmed" ta="right" style={{ width: 64 }}>{stats.min.toFixed(2)}</Text>
-                <Text size="sm" c="dimmed" ta="right" style={{ width: 64 }}>{stats.max.toFixed(2)}</Text>
-                <Text size="sm" c="dimmed" ta="right" style={{ width: 64 }}>{stats.median.toFixed(2)}</Text>
+                <Text size="sm" fw={600} ta="right" style={{ width: 64 }}>{formatMinutes(stats.avg)}</Text>
+                <Text size="sm" c="dimmed" ta="right" style={{ width: 64 }}>{formatMinutes(stats.min)}</Text>
+                <Text size="sm" c="dimmed" ta="right" style={{ width: 64 }}>{formatMinutes(stats.max)}</Text>
+                <Text size="sm" c="dimmed" ta="right" style={{ width: 64 }}>{formatMinutes(stats.median)}</Text>
                 <Text size="sm" c="dimmed" ta="right" style={{ width: 48 }}>{stats.count}</Text>
               </>
             ) : (

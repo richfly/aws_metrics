@@ -1,5 +1,6 @@
 import { ContactRecord, DetailedMetrics } from '../types'
 import { ColumnDef } from './tableColumns'
+import { formatMinutes } from './metricsCalculator'
 
 export function copyToClipboard(text: string): Promise<void> {
   return navigator.clipboard.writeText(text)
@@ -72,10 +73,10 @@ export function formatSummaryText(
     if (stats) {
       const row =
         label.padEnd(28) +
-        stats.avg.toFixed(2).padStart(8) + '  ' +
-        stats.min.toFixed(2).padStart(8) + '  ' +
-        stats.max.toFixed(2).padStart(8) + '  ' +
-        stats.median.toFixed(2).padStart(8) + '  ' +
+        formatMinutes(stats.avg).padStart(8) + '  ' +
+        formatMinutes(stats.min).padStart(8) + '  ' +
+        formatMinutes(stats.max).padStart(8) + '  ' +
+        formatMinutes(stats.median).padStart(8) + '  ' +
         String(stats.count).padStart(4)
       lines.push(row)
     } else {

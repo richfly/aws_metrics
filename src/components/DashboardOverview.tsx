@@ -15,7 +15,7 @@ import {
   ComposedChart,
 } from 'recharts'
 import { ContactRecord } from '../types'
-import { calculateOverallSla, calculateDailySla, parseDate, localDateStr } from '../utils/metricsCalculator'
+import { calculateOverallSla, calculateDailySla, parseDate, localDateStr, formatSeconds } from '../utils/metricsCalculator'
 import { ChartExportButton } from './ChartExportButton'
 
 interface DashboardOverviewProps {
@@ -225,7 +225,7 @@ export function DashboardOverview({ records }: DashboardOverviewProps) {
                 Avg Speed to Answer
               </Text>
               <Text fw={700} size="xl">
-                {connectSecs !== null ? `${connectSecs.toFixed(0)}s` : '—'}
+                {connectSecs !== null ? formatSeconds(connectSecs) : '—'}
               </Text>
               <Text size="xs" c="dimmed">Connect time</Text>
             </Paper>
