@@ -83,3 +83,10 @@ CREATE POLICY "Authenticated users can upsert phone_records"
 -- Enable real-time replication so the app auto-refreshes on new data
 alter publication supabase_realtime add table contacts;
 alter publication supabase_realtime add table phone_records;
+
+-- ============================================================
+-- Workflow builder (call-review rules + assignments)
+-- ============================================================
+-- See supabase-migration-workflows.sql for the full migration.
+-- Tables: reviewers, workflows, assignments, assignment_events
+-- 8 fake reviewers are seeded on first app load via the useReviewers hook.

@@ -1,3 +1,5 @@
+export * from './review'
+
 export interface ContactRecord {
   contactId: string
   channel: string

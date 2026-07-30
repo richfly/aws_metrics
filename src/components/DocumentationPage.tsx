@@ -1,4 +1,4 @@
-import { Paper, Text, Group, Stack, Divider } from "@mantine/core";
+import { Paper, Text, Group, Stack, Divider, Title, Badge } from "@mantine/core";
 import { motion } from "framer-motion";
 import {
   IconUpload,
@@ -16,6 +16,9 @@ import {
   IconRefresh,
   IconAlertTriangle,
   IconAlertHexagon,
+  IconCheckbox,
+  IconArrowsJoin,
+  IconCheck,
 } from "@tabler/icons-react";
 
 const sections = [
@@ -456,6 +459,97 @@ export function DocumentationPage() {
                   </div>
                 </Group>
               ))}
+            </Stack>
+          </div>
+        </Stack>
+      </Paper>
+
+      <Paper p="lg" radius="md" shadow="sm" className="glass-panel">
+        <Stack gap="md">
+          <div>
+            <Title order={2} mb={4}>Workflow Builder</Title>
+            <Text c="dimmed" size="sm">
+              Build rules that automatically assign calls to reviewers for QA.
+              Workflows run against the current contact data and re-materialize whenever data is loaded or refreshed.
+            </Text>
+          </div>
+
+          <Group gap="xs" wrap="wrap">
+            <Badge variant="light" color="blue">per-call</Badge>
+            <Text size="sm" c="dimmed">creates one task per matching call</Text>
+          </Group>
+          <Group gap="xs" wrap="wrap">
+            <Badge variant="light" color="violet">per-group</Badge>
+            <Text size="sm" c="dimmed">groups matching calls by phone / agent / queue and creates one task per group</Text>
+          </Group>
+
+          <Divider />
+
+          <div>
+            <Title order={4} mb={6}>Condition types</Title>
+            <Stack gap="xs">
+              <Group gap="xs" align="start" wrap="nowrap">
+                <IconFilter size={18} style={{ marginTop: 2 }} />
+                <div>
+                  <Text size="sm" fw={500}>Field</Text>
+                  <Text size="xs" c="dimmed">queue, agent, routing profile, phone description, channel, etc. Operators: =, ≠, contains, in, not in.</Text>
+                </div>
+              </Group>
+              <Group gap="xs" align="start" wrap="nowrap">
+                <IconChartLine size={18} style={{ marginTop: 2 }} />
+                <div>
+                  <Text size="sm" fw={500}>Numeric</Text>
+                  <Text size="xs" c="dimmed">contact duration, agent interaction, number of holds, connection attempts. Operators: &gt;, &lt;, ≥, ≤, between.</Text>
+                </div>
+              </Group>
+              <Group gap="xs" align="start" wrap="nowrap">
+                <IconClock size={18} style={{ marginTop: 2 }} />
+                <div>
+                  <Text size="sm" fw={500}>Time</Text>
+                  <Text size="xs" c="dimmed">time of day, day of week, weekend only.</Text>
+                </div>
+              </Group>
+              <Group gap="xs" align="start" wrap="nowrap">
+                <IconArrowsJoin size={18} style={{ marginTop: 2 }} />
+                <div>
+                  <Text size="sm" fw={500}>Aggregate (windowed)</Text>
+                  <Text size="xs" c="dimmed">
+                    count/avg/min/max of a field, grouped by customer phone, agent, queue, or system phone, within a sliding time window. Example: &ldquo;count of calls from this customer in the last 60 minutes ≥ 3&rdquo; — surfaces repeat callers.
+                  </Text>
+                </div>
+              </Group>
+            </Stack>
+          </div>
+
+          <Divider />
+
+          <div>
+            <Title order={4} mb={6}>Reviewer workflow</Title>
+            <Stack gap="xs">
+              <Group gap="xs" align="start" wrap="nowrap">
+                <IconUser size={18} style={{ marginTop: 2 }} />
+                <div>
+                  <Text size="sm" fw={500}>Pick a reviewer</Text>
+                  <Text size="xs" c="dimmed">
+                    Use the avatar dropdown in the header to switch between the 8 seeded reviewers (demo only — no real auth).
+                    Your selection persists in localStorage.
+                  </Text>
+                </div>
+              </Group>
+              <Group gap="xs" align="start" wrap="nowrap">
+                <IconCheckbox size={18} style={{ marginTop: 2 }} />
+                <div>
+                  <Text size="sm" fw={500}>States</Text>
+                  <Text size="xs" c="dimmed">assigned → in_progress → completed | flagged | escalated. Each transition is logged with timestamp and optional note.</Text>
+                </div>
+              </Group>
+              <Group gap="xs" align="start" wrap="nowrap">
+                <IconCheck size={18} style={{ marginTop: 2 }} />
+                <div>
+                  <Text size="sm" fw={500}>Materialization</Text>
+                  <Text size="xs" c="dimmed">When data refreshes, enabled workflows re-run. Existing assignments keep their state — only the contact set is updated.</Text>
+                </div>
+              </Group>
             </Stack>
           </div>
         </Stack>

@@ -61,6 +61,12 @@ import { useTimeLabel } from "./hooks/useTimeLabel";
 import { useFilterOptions } from "./hooks/useFilterOptions";
 import { useDatePresets } from "./hooks/useDatePresets";
 import { useUploader } from "./hooks/useUploader";
+import { useReviewers, useCurrentReviewer } from "./hooks/useReviewers";
+import { useWorkflowMaterializer } from "./hooks/useWorkflowMaterializer";
+import { useWorkflows } from "./hooks/useWorkflows";
+import { ReviewerSelector } from "./components/reviewers/ReviewerSelector";
+import { WorkflowsPage } from "./components/workflows/WorkflowsPage";
+import { MyQueue } from "./components/queue/MyQueue";
 import posthog from "./lib/posthog";
 import "./index.css";
 
@@ -76,7 +82,13 @@ const NAV_LINKS = [
   { id: "usage" as const, label: "Documentation", icon: IconBook },
 ]
 
-type ActivePage = (typeof NAV_LINKS)[number]["id"]
+type WorkflowNavId = "workflows" | "my_queue"
+const WORKFLOW_NAV: Array<{ id: WorkflowNavId; label: string; icon: typeof IconChartBar }> = [
+  { id: "workflows", label: "Workflows", icon: IconFilter },
+  { id: "my_queue",  label: "My Queue",  icon: IconUser },
+]
+
+type ActivePage = (typeof NAV_LINKS)[number]["id"] | WorkflowNavId
 
 export default function App() {
   const { session, loading, signOut } = useAuth();
@@ -85,6 +97,14 @@ export default function App() {
   const [activePage, setActivePage] = useState<ActivePage>("dashboard");
   const [dataModalOpened, setDataModalOpened] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { reviewers } = useReviewers();
+  const { current: currentReviewer, setCurrent: setCurrentReviewer } = useCurrentReviewer(reviewers);
+
+  const handleReviewerChange = useCallback((id: string) => {
+    setCurrentReviewer(id)
+    posthog.capture("reviewer_switched", { reviewer_id: id })
+  }, [setCurrentReviewer])
 
   const data = useDataLoader(session);
   const filters = useFilters(data.joinedRecords);
@@ -116,19 +136,36 @@ export default function App() {
 
   const slaInclusiveEnabled = useFeatureFlagEnabled("sla-inclusive-view")
   const anomaliesEnabled = useFeatureFlagEnabled("anomalies-view")
+  const workflowBuilderEnabled = useFeatureFlagEnabled("workflow-builder")
 
   useEffect(() => {
     if (activePage === "sla-inclusive" && !slaInclusiveEnabled) setActivePage("dashboard")
     if (activePage === "anomalies" && !anomaliesEnabled) setActivePage("dashboard")
-  }, [activePage, slaInclusiveEnabled, anomaliesEnabled])
+    if ((activePage === "workflows" || activePage === "my_queue") && !workflowBuilderEnabled) {
+      setActivePage("dashboard")
+    }
+  }, [activePage, slaInclusiveEnabled, anomaliesEnabled, workflowBuilderEnabled])
 
   const visibleNavLinks = useMemo(() => {
-    return NAV_LINKS.filter((link) => {
+    const base = NAV_LINKS.filter((link) => {
       if (link.id === "sla-inclusive") return !!slaInclusiveEnabled
       if (link.id === "anomalies") return !!anomaliesEnabled
       return true
     })
-  }, [slaInclusiveEnabled, anomaliesEnabled])
+    if (!workflowBuilderEnabled) return base
+    return [
+      ...base.slice(0, 1),
+      ...WORKFLOW_NAV,
+      ...base.slice(1),
+    ]
+  }, [slaInclusiveEnabled, anomaliesEnabled, workflowBuilderEnabled])
+
+  const { workflows } = useWorkflows()
+  useWorkflowMaterializer({
+    workflows,
+    records: data.joinedRecords,
+    reviewers,
+  })
 
   const { handleContactsUpload, handlePhonesUpload } = useUploader(
     {
@@ -299,6 +336,11 @@ export default function App() {
                   {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
                 </ActionIcon>
               </Tooltip>
+              <ReviewerSelector
+                reviewers={reviewers}
+                current={currentReviewer}
+                onSelect={handleReviewerChange}
+              />
               <Tooltip label="Sign out">
                 <ActionIcon
                   variant="subtle"
@@ -526,6 +568,14 @@ export default function App() {
                 ))}
 
               {activePage === "usage" && <DocumentationPage />}
+
+              {activePage === "workflows" && (
+                <WorkflowsPage records={filters.deferredFilteredRecords} />
+              )}
+
+              {activePage === "my_queue" && (
+                <MyQueue records={filters.deferredFilteredRecords} />
+              )}
             </Stack>
           </Container>
         </AppShell.Main>
