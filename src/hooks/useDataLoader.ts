@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { ContactRecord, PhoneRecord } from '../types'
 import { joinData } from '../utils/dataJoiner'
 import { clearDateCache } from '../utils/metricsCalculator'
+import posthog from '../lib/posthog'
 
 const CONTACT_FIELDS: [keyof ContactRecord, string][] = [
   ["contactId", "contact_id"],
@@ -198,8 +199,19 @@ export function useDataLoader(session: unknown): DataLoaderState {
           `[fetch] loaded ${contactsAll.length} contacts + ${phonesAll.length} phones`,
         )
       }
+      posthog.capture('data_loaded', {
+        source: 'supabase',
+        contact_count: contactsAll.length,
+        phone_count: phonesAll.length,
+        silent: !!options?.silent,
+      })
     } catch (err) {
       console.error("[fetch] Supabase load failed:", err)
+      posthog.capture('data_load_failed', {
+        source: 'supabase',
+        silent: !!options?.silent,
+        error: err instanceof Error ? err.message : String(err),
+      })
       throw err
     } finally {
       setLoadingProgress(null)

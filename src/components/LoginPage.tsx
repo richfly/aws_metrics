@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Container, Paper, Title, TextInput, PasswordInput, Button, Alert, Stack, Center, Box } from '@mantine/core'
 import { IconAlertCircle, IconChartBar } from '@tabler/icons-react'
 import { useAuth } from '../contexts/AuthContext'
+import posthog from '../lib/posthog'
 
 export function LoginPage() {
   const { signIn } = useAuth()
@@ -17,6 +18,9 @@ export function LoginPage() {
     const { error } = await signIn(email, password)
     if (error) {
       setError(error.message)
+      posthog.capture('user_sign_in_failed')
+    } else {
+      posthog.capture('user_signed_in')
     }
     setLoading(false)
   }

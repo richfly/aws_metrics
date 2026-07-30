@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ActionIcon, Tooltip, Loader } from '@mantine/core'
 import { IconDownload } from '@tabler/icons-react'
 import html2canvas from 'html2canvas'
+import posthog from '../lib/posthog'
 
 interface ChartExportButtonProps {
   /** Ref or ID of the element to capture. */
@@ -42,6 +43,7 @@ export function ChartExportButton({
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
+      posthog.capture('chart_exported')
     } catch (err) {
       console.error("[export] PNG download failed:", err)
     } finally {

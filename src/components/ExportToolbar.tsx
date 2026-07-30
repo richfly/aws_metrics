@@ -8,6 +8,7 @@ import {
 import { ContactRecord, DetailedMetrics } from '../types'
 import { downloadCsv, rowsToTsv, copyToClipboard, formatSummaryText, downloadColumnCsv, columnRowsToTsv } from '../utils/exportUtils'
 import { COLUMNS } from '../utils/tableColumns'
+import posthog from '../lib/posthog'
 
 interface ExportToolbarProps {
   records: ContactRecord[]
@@ -30,11 +31,21 @@ export function ExportToolbar({ records, metrics, totalRecords, filteredRecords,
 
   const handleDownloadCsv = () => {
     downloadColumnCsv(records, activeColumns, 'contact-metrics-filtered.csv')
+    posthog.capture('filtered_data_exported', {
+      export_scope: exportScope,
+      record_count: records.length,
+      column_count: activeColumns.length,
+    })
   }
 
   const handleCopyTable = async () => {
     const tsv = columnRowsToTsv(records, activeColumns)
     await copyToClipboard(tsv)
+    posthog.capture('table_copied', {
+      export_scope: exportScope,
+      record_count: records.length,
+      column_count: activeColumns.length,
+    })
     setCsvCopied(true)
     setTimeout(() => setCsvCopied(false), 1800)
   }
@@ -42,6 +53,9 @@ export function ExportToolbar({ records, metrics, totalRecords, filteredRecords,
   const handleCopySummary = async () => {
     const text = formatSummaryText(metrics, filterLabel, totalRecords, filteredRecords)
     await copyToClipboard(text)
+    posthog.capture('metrics_summary_copied', {
+      record_count: filteredRecords,
+    })
     setSummaryCopied(true)
     setTimeout(() => setSummaryCopied(false), 1800)
   }

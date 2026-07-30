@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useDeferredValue } from 'react'
 import { ContactRecord } from '../types'
 import { calculateMetrics, parseDate } from '../utils/metricsCalculator'
+import posthog from '../lib/posthog'
 
 export interface FiltersState {
   routingProfileFilter: string[]
@@ -31,12 +32,37 @@ export interface FilterOptions {
 }
 
 export function useFilters(joinedRecords: ContactRecord[]): FiltersState {
-  const [routingProfileFilter, setRoutingProfileFilter] = useState<string[]>([])
-  const [queueFilter, setQueueFilter] = useState<string[]>([])
-  const [descriptionFilter, setDescriptionFilter] = useState<string[]>([])
-  const [initiationMethodFilter, setInitiationMethodFilter] = useState<string[]>([])
-  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null])
+  const [routingProfileFilter, _setRoutingProfileFilter] = useState<string[]>([])
+  const [queueFilter, _setQueueFilter] = useState<string[]>([])
+  const [descriptionFilter, _setDescriptionFilter] = useState<string[]>([])
+  const [initiationMethodFilter, _setInitiationMethodFilter] = useState<string[]>([])
+  const [dateRange, _setDateRange] = useState<[Date | null, Date | null]>([null, null])
   const [dateMode, setDateMode] = useState<"single" | "range">("range")
+
+  const setRoutingProfileFilter = useCallback((v: string[]) => {
+    _setRoutingProfileFilter(v)
+    posthog.capture('filter_changed', { filter: 'routing_profile', count: v.length })
+  }, [])
+  const setQueueFilter = useCallback((v: string[]) => {
+    _setQueueFilter(v)
+    posthog.capture('filter_changed', { filter: 'queue', count: v.length })
+  }, [])
+  const setDescriptionFilter = useCallback((v: string[]) => {
+    _setDescriptionFilter(v)
+    posthog.capture('filter_changed', { filter: 'phone_description', count: v.length })
+  }, [])
+  const setInitiationMethodFilter = useCallback((v: string[]) => {
+    _setInitiationMethodFilter(v)
+    posthog.capture('filter_changed', { filter: 'initiation_method', count: v.length })
+  }, [])
+  const setDateRange = useCallback((v: [Date | null, Date | null]) => {
+    _setDateRange(v)
+    posthog.capture('filter_changed', {
+      filter: 'date_range',
+      from: v[0]?.toISOString() ?? null,
+      to: v[1]?.toISOString() ?? null,
+    })
+  }, [])
 
   const routingProfileSet = useMemo(() => new Set(routingProfileFilter), [routingProfileFilter])
   const queueFilterSet = useMemo(() => new Set(queueFilter), [queueFilter])
@@ -93,7 +119,8 @@ export function useFilters(joinedRecords: ContactRecord[]): FiltersState {
     setDescriptionFilter([])
     setInitiationMethodFilter([])
     setDateRange([null, null])
-  }, [])
+    posthog.capture('filters_cleared')
+  }, [setRoutingProfileFilter, setQueueFilter, setDescriptionFilter, setInitiationMethodFilter, setDateRange])
 
   const hasFilter =
     !!(dateRange[0] || dateRange[1]) ||

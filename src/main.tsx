@@ -8,6 +8,8 @@ import { AuthProvider } from './contexts/AuthContext'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
 import App from './App'
+import posthog from './lib/posthog'
+import { PostHogErrorBoundary, PostHogProvider } from '@posthog/react'
 
 const theme = createTheme({
   defaultRadius: 'md',
@@ -36,9 +38,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <MantineProvider theme={theme} defaultColorScheme="dark" cssVariablesResolver={resolver}>
       <Notifications position="bottom-right" />
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <PostHogProvider client={posthog}>
+        <PostHogErrorBoundary>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </PostHogErrorBoundary>
+      </PostHogProvider>
     </MantineProvider>
   </React.StrictMode>
 )

@@ -4,6 +4,7 @@ import { parseContactCsv, parsePhoneCsv } from '../utils/csvParser'
 import { ContactRecord, PhoneRecord } from '../types'
 import { toSnake } from './useDataLoader'
 import { notifications } from '@mantine/notifications'
+import posthog from '../lib/posthog'
 
 const CONTACT_FIELDS: [keyof ContactRecord, string][] = [
   ["contactId", "contact_id"],
@@ -149,6 +150,10 @@ export function useUploader(deps: UploaderDeps, callbacks: UploaderCallbacks) {
 
         clearFilterState()
         setError("")
+        posthog.capture('contacts_uploaded', {
+          record_count: parsed.length,
+          storage: session && hasSupabase ? 'supabase' : 'local',
+        })
       } catch (err) {
         console.error("[upload] contacts parse failed:", err)
         setError((err as Error).message || "Failed to parse contacts CSV")
@@ -208,6 +213,10 @@ export function useUploader(deps: UploaderDeps, callbacks: UploaderCallbacks) {
         }
 
         setError("")
+        posthog.capture('phone_numbers_uploaded', {
+          record_count: parsed.length,
+          storage: session && hasSupabase ? 'supabase' : 'local',
+        })
       } catch (err) {
         console.error("[upload] phones parse failed:", err)
         setError((err as Error).message || "Failed to parse phone numbers CSV")

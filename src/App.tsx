@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useFeatureFlagEnabled } from "@posthog/react";
 import {
   Container,
   Title,
@@ -60,6 +61,7 @@ import { useTimeLabel } from "./hooks/useTimeLabel";
 import { useFilterOptions } from "./hooks/useFilterOptions";
 import { useDatePresets } from "./hooks/useDatePresets";
 import { useUploader } from "./hooks/useUploader";
+import posthog from "./lib/posthog";
 import "./index.css";
 
 const NAV_LINKS = [
@@ -97,12 +99,36 @@ export default function App() {
     [timeLabel],
   )
 
-  const clearFilterState = useCallback(() => {
-    filters.setRoutingProfileFilter([])
-    filters.setQueueFilter([])
-    filters.setDescriptionFilter([])
-    filters.setInitiationMethodFilter([])
-  }, [filters])
+  const handleSignOut = useCallback(async () => {
+    posthog.capture("user_signed_out")
+    await signOut()
+  }, [signOut])
+
+  const handleNavigation = useCallback((page: ActivePage) => {
+    setActivePage(page)
+    posthog.register({ current_section: page })
+    posthog.capture("dashboard_section_viewed", { section: page })
+  }, [])
+
+  useEffect(() => {
+    posthog.register({ color_scheme: isDark ? "dark" : "light" })
+  }, [isDark])
+
+  const slaInclusiveEnabled = useFeatureFlagEnabled("sla-inclusive-view")
+  const anomaliesEnabled = useFeatureFlagEnabled("anomalies-view")
+
+  useEffect(() => {
+    if (activePage === "sla-inclusive" && !slaInclusiveEnabled) setActivePage("dashboard")
+    if (activePage === "anomalies" && !anomaliesEnabled) setActivePage("dashboard")
+  }, [activePage, slaInclusiveEnabled, anomaliesEnabled])
+
+  const visibleNavLinks = useMemo(() => {
+    return NAV_LINKS.filter((link) => {
+      if (link.id === "sla-inclusive") return !!slaInclusiveEnabled
+      if (link.id === "anomalies") return !!anomaliesEnabled
+      return true
+    })
+  }, [slaInclusiveEnabled, anomaliesEnabled])
 
   const { handleContactsUpload, handlePhonesUpload } = useUploader(
     {
@@ -113,7 +139,7 @@ export default function App() {
     {
       onUploadSuccess: handleUploadSuccess,
       setError: (e: string) => setError(e || null),
-      clearFilterState,
+      clearFilterState: filters.clearFilters,
       setContactRecords: data.setContactRecords,
       setPhoneRecords: data.setPhoneRecords,
       setPhoneCustomLoaded: data.setPhoneCustomLoaded,
@@ -278,7 +304,7 @@ export default function App() {
                   variant="subtle"
                   size="lg"
                   radius="xl"
-                  onClick={() => signOut()}
+                  onClick={handleSignOut}
                 >
                   <IconLogout size={18} />
                 </ActionIcon>
@@ -288,13 +314,13 @@ export default function App() {
         </AppShell.Header>
 
         <AppShell.Navbar p="sm">
-          {NAV_LINKS.map((link) => (
+          {visibleNavLinks.map((link) => (
             <NavLink
               key={link.id}
               label={link.label}
               leftSection={<link.icon size={20} />}
               active={activePage === link.id}
-              onClick={() => setActivePage(link.id)}
+              onClick={() => handleNavigation(link.id)}
               variant="light"
               style={{
                 borderRadius: "var(--mantine-radius-xl)",
@@ -477,6 +503,7 @@ export default function App() {
                 ))}
 
               {activePage === "sla-inclusive" &&
+                slaInclusiveEnabled &&
                 (data.contactRecords.length === 0 && data.supabaseLoading ? (
                   <ContentSkeleton />
                 ) : (
@@ -491,6 +518,7 @@ export default function App() {
                 ))}
 
               {activePage === "anomalies" &&
+                anomaliesEnabled &&
                 (data.contactRecords.length === 0 && data.supabaseLoading ? (
                   <ContentSkeleton />
                 ) : (
